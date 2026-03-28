@@ -16,6 +16,10 @@ public sealed class GlobalHotKeyManager : IDisposable
     private const uint VkK = 0x4B;
     private const uint VkE = 0x45;
     private const uint VkS = 0x53;
+    private const uint VkR = 0x52;
+    private const uint VkN = 0x4E;
+    private const uint VkP = 0x50;
+    private const uint VkB = 0x42;
 
     private readonly Action _speakCurrentFocus;
     private readonly Action _repeatLastSpeech;
@@ -26,6 +30,10 @@ public sealed class GlobalHotKeyManager : IDisposable
     private readonly Action _moveToNextLink;
     private readonly Action _moveToNextEditField;
     private readonly Action _summarizeCurrentPage;
+    private readonly Action _refreshVirtualBuffer;
+    private readonly Action _moveToNextBufferItem;
+    private readonly Action _moveToPreviousBufferItem;
+    private readonly Action _summarizeVirtualBuffer;
     private Thread? _messageLoopThread;
     private volatile bool _running;
     private uint _threadId;
@@ -39,7 +47,11 @@ public sealed class GlobalHotKeyManager : IDisposable
         Action moveToNextHeading,
         Action moveToNextLink,
         Action moveToNextEditField,
-        Action summarizeCurrentPage)
+        Action summarizeCurrentPage,
+        Action refreshVirtualBuffer,
+        Action moveToNextBufferItem,
+        Action moveToPreviousBufferItem,
+        Action summarizeVirtualBuffer)
     {
         _speakCurrentFocus = speakCurrentFocus;
         _repeatLastSpeech = repeatLastSpeech;
@@ -50,6 +62,10 @@ public sealed class GlobalHotKeyManager : IDisposable
         _moveToNextLink = moveToNextLink;
         _moveToNextEditField = moveToNextEditField;
         _summarizeCurrentPage = summarizeCurrentPage;
+        _refreshVirtualBuffer = refreshVirtualBuffer;
+        _moveToNextBufferItem = moveToNextBufferItem;
+        _moveToPreviousBufferItem = moveToPreviousBufferItem;
+        _summarizeVirtualBuffer = summarizeVirtualBuffer;
     }
 
     public void Start()
@@ -90,6 +106,10 @@ public sealed class GlobalHotKeyManager : IDisposable
         RegisterHotKey(IntPtr.Zero, 7, ModControl | ModAlt, VkK);
         RegisterHotKey(IntPtr.Zero, 8, ModControl | ModAlt, VkE);
         RegisterHotKey(IntPtr.Zero, 9, ModControl | ModAlt, VkS);
+        RegisterHotKey(IntPtr.Zero, 10, ModControl | ModAlt, VkR);
+        RegisterHotKey(IntPtr.Zero, 11, ModControl | ModAlt, VkN);
+        RegisterHotKey(IntPtr.Zero, 12, ModControl | ModAlt, VkP);
+        RegisterHotKey(IntPtr.Zero, 13, ModControl | ModAlt, VkB);
 
         try
         {
@@ -112,6 +132,10 @@ public sealed class GlobalHotKeyManager : IDisposable
             UnregisterHotKey(IntPtr.Zero, 7);
             UnregisterHotKey(IntPtr.Zero, 8);
             UnregisterHotKey(IntPtr.Zero, 9);
+            UnregisterHotKey(IntPtr.Zero, 10);
+            UnregisterHotKey(IntPtr.Zero, 11);
+            UnregisterHotKey(IntPtr.Zero, 12);
+            UnregisterHotKey(IntPtr.Zero, 13);
         }
     }
 
@@ -145,6 +169,18 @@ public sealed class GlobalHotKeyManager : IDisposable
                 break;
             case 9:
                 _summarizeCurrentPage();
+                break;
+            case 10:
+                _refreshVirtualBuffer();
+                break;
+            case 11:
+                _moveToNextBufferItem();
+                break;
+            case 12:
+                _moveToPreviousBufferItem();
+                break;
+            case 13:
+                _summarizeVirtualBuffer();
                 break;
         }
     }

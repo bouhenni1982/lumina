@@ -117,6 +117,11 @@ public static class BrowserNavigator
         return missingMessage;
     }
 
+    internal static AutomationElement ResolveNavigationRootForBuffer(AutomationElement current) => ResolveNavigationRoot(current);
+
+    internal static IEnumerable<AutomationElement> EnumerateBufferCandidates(AutomationElement root) =>
+        EnumerateElements(root).Where(IsBufferCandidate);
+
     private static AutomationElement ResolveNavigationRoot(AutomationElement current)
     {
         AutomationElement? document = FocusSnapshotReader.FindAncestor(
@@ -152,6 +157,18 @@ public static class BrowserNavigator
                 child = TreeWalker.ControlViewWalker.GetNextSibling(child);
             }
         }
+    }
+
+    private static bool IsBufferCandidate(AutomationElement element)
+    {
+        string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+        if (semanticRole is "web_control")
+        {
+            return false;
+        }
+
+        string name = FocusSnapshotReader.ResolveName(element);
+        return !string.IsNullOrWhiteSpace(name) && name != "عنصر غير مسمى";
     }
 
     private static IEnumerable<AutomationElement> EnumerateAfterCurrent(IReadOnlyList<AutomationElement> elements, int currentIndex)
