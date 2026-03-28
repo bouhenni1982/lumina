@@ -48,6 +48,7 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
   - `Insert+Up` لقراءة السطر الحالي
   - `Insert+Down` للقراءة المتصلة من موضع المراجعة
   - `Insert+Left / Insert+Right` للكلمة السابقة أو اللاحقة
+  - `Insert+PageUp / Insert+PageDown` للجملة السابقة أو اللاحقة
 - داخل وضع المراجعة النصية:
   - `Left / Right` للحرف السابق أو اللاحق
   - `Up / Down` للسطر السابق أو اللاحق

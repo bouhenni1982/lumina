@@ -36,6 +36,8 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkRight = 0x27;
     private const uint VkHome = 0x24;
     private const uint VkEnd = 0x23;
+    private const uint VkPageUp = 0x21;
+    private const uint VkPageDown = 0x22;
 
     private const uint VkH = 0x48;
     private const uint VkK = 0x4B;
@@ -70,6 +72,8 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _readNextWord;
     private readonly Action _readPreviousParagraph;
     private readonly Action _readNextParagraph;
+    private readonly Action _readPreviousSentence;
+    private readonly Action _readNextSentence;
     private readonly Action _moveToStartOfLine;
     private readonly Action _moveToEndOfLine;
     private readonly Action _sayAllFromReviewCursor;
@@ -115,6 +119,8 @@ public sealed class KeyboardCommandManager : IDisposable
         Action readNextWord,
         Action readPreviousParagraph,
         Action readNextParagraph,
+        Action readPreviousSentence,
+        Action readNextSentence,
         Action moveToStartOfLine,
         Action moveToEndOfLine,
         Action sayAllFromReviewCursor)
@@ -148,6 +154,8 @@ public sealed class KeyboardCommandManager : IDisposable
         _readNextWord = readNextWord;
         _readPreviousParagraph = readPreviousParagraph;
         _readNextParagraph = readNextParagraph;
+        _readPreviousSentence = readPreviousSentence;
+        _readNextSentence = readNextSentence;
         _moveToStartOfLine = moveToStartOfLine;
         _moveToEndOfLine = moveToEndOfLine;
         _sayAllFromReviewCursor = sayAllFromReviewCursor;
@@ -307,6 +315,8 @@ public sealed class KeyboardCommandManager : IDisposable
             VkDown => _sayAllFromReviewCursor,
             VkLeft => _readPreviousWord,
             VkRight => _readNextWord,
+            VkPageUp => _readPreviousSentence,
+            VkPageDown => _readNextSentence,
             _ => null
         };
 

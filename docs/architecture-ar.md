@@ -129,6 +129,7 @@ Lumina.Host
   - `Ctrl+الأسهم` للكلمة والفقرة
   - `Insert+Up` للسطر الحالي
   - `Insert+Down` للقراءة المتصلة
+  - `Insert+PageUp/PageDown` للجملة السابقة واللاحقة
   - `Home/End` لبداية ونهاية السطر
   وذلك عبر `UIA TextPattern` عندما يكون متاحًا.
 - تعريف أوامر خاصة مثل:

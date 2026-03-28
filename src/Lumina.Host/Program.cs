@@ -28,6 +28,7 @@ Console.WriteLine("Insert+Enter لتفعيل أو تعطيل وضع المراج
 Console.WriteLine("Insert+Up لقراءة السطر الحالي.");
 Console.WriteLine("Insert+Down لقراءة متصلة من موضع المراجعة.");
 Console.WriteLine("Insert+Left/Right للكلمة السابقة أو اللاحقة.");
+Console.WriteLine("Insert+PageUp/PageDown للجملة السابقة أو اللاحقة.");
 Console.WriteLine("داخل وضع المراجعة: الأسهم للحرف والسطر وCtrl+الأسهم للكلمة والفقرة وHome/End لبداية ونهاية السطر.");
 Console.WriteLine("داخل المتصفح: H/K/E للعنصر التالي وShift+H/K/E للعنصر السابق.");
 Console.WriteLine("اضغط Ctrl+C للإيقاف.");
@@ -180,6 +181,16 @@ using var hotKeys = new KeyboardCommandManager(
     readNextParagraph: () =>
     {
         string text = TextReviewCursor.ReadNextParagraph();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    readPreviousSentence: () =>
+    {
+        string text = TextReviewCursor.ReadPreviousSentence();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    readNextSentence: () =>
+    {
+        string text = TextReviewCursor.ReadNextSentence();
         speechService.Enqueue(new SpeechRequest(text, 100, true));
     },
     moveToStartOfLine: () =>

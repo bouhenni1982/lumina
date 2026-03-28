@@ -28,6 +28,10 @@ public static class TextReviewCursor
 
     public static string ReadNextParagraph() => ReadUnit(1, TextUnit.Paragraph, "لا توجد فقرة لاحقة.", "العنصر الحالي لا يدعم مراجعة الفقرات.", "الفقرة");
 
+    public static string ReadPreviousSentence() => ReadUnit(-1, TextUnit.Sentence, "لا توجد جملة سابقة.", "العنصر الحالي لا يدعم مراجعة الجمل.", "الجملة");
+
+    public static string ReadNextSentence() => ReadUnit(1, TextUnit.Sentence, "لا توجد جملة لاحقة.", "العنصر الحالي لا يدعم مراجعة الجمل.", "الجملة");
+
     public static string MoveToStartOfLine() => MoveToLineBoundary(toStart: true);
 
     public static string MoveToEndOfLine() => MoveToLineBoundary(toStart: false);
