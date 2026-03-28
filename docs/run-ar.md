@@ -61,6 +61,7 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
   - `Ctrl+Left / Ctrl+Right` للكلمة السابقة أو اللاحقة
   - `Ctrl+Up / Ctrl+Down` للفقرة السابقة أو اللاحقة
   - `Home / End` لبداية ونهاية السطر
+  - تحاول أوامر المراجعة أيضًا مزامنة المؤشر النصي مع الموضع المقروء عندما يدعم العنصر ذلك
 - داخل المتصفح:
   - `H / K / E / Y` للعنصر التالي
   - `Shift+H / Shift+K / Shift+E / Shift+Y` للعنصر السابق

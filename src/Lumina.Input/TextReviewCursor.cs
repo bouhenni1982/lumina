@@ -161,6 +161,7 @@ public static class TextReviewCursor
 
             _characterRange = _lineRange.Clone();
             _characterRange.ExpandToEnclosingUnit(TextUnit.Character);
+            SyncFocusToReviewPosition(element);
             return $"السطر {text}";
         }
     }
@@ -194,6 +195,7 @@ public static class TextReviewCursor
                 return boundaryMessage;
             }
 
+            SyncFocusToReviewPosition(element);
             return $"الحرف {DescribeCharacter(text)}";
         }
     }
@@ -224,6 +226,7 @@ public static class TextReviewCursor
             }
 
             _characterRange = range.Clone();
+            SyncFocusToReviewPosition(element);
             return $"{label} {text}";
         }
     }
@@ -270,6 +273,7 @@ public static class TextReviewCursor
 
             _characterRange = probe.Clone();
             string text = Normalize(_characterRange.GetText(-1));
+            SyncFocusToReviewPosition(element);
             return toStart
                 ? $"بداية السطر {DescribeCharacter(text)}"
                 : $"نهاية السطر {DescribeCharacter(text)}";
@@ -315,6 +319,8 @@ public static class TextReviewCursor
                 return boundaryMessage;
             }
 
+            MoveCharacterRangeToSentence(paragraphText, paragraphRange, sentences, _sentenceIndex);
+            SyncFocusToReviewPosition(element);
             return $"الجملة {sentences[_sentenceIndex]}";
         }
     }
@@ -469,6 +475,76 @@ public static class TextReviewCursor
         {
             return string.Empty;
         }
+    }
+
+    private static void MoveCharacterRangeToSentence(
+        string paragraphText,
+        TextPatternRange paragraphRange,
+        List<string> sentences,
+        int sentenceIndex)
+    {
+        int start = ResolveSentenceStartOffset(paragraphText, sentences, sentenceIndex);
+
+        TextPatternRange caret = paragraphRange.Clone();
+        caret.MoveEndpointByRange(TextPatternRangeEndpoint.End, caret, TextPatternRangeEndpoint.Start);
+        if (start > 0)
+        {
+            caret.Move(TextUnit.Character, start);
+        }
+
+        _characterRange = caret.Clone();
+        _characterRange.ExpandToEnclosingUnit(TextUnit.Character);
+    }
+
+    private static void SyncFocusToReviewPosition(AutomationElement element)
+    {
+        try
+        {
+            element.SetFocus();
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            TextPatternRange? activeRange = _characterRange?.Clone() ?? _lineRange?.Clone();
+            if (activeRange is null)
+            {
+                return;
+            }
+
+            TextPatternRange caret = activeRange.Clone();
+            caret.MoveEndpointByRange(TextPatternRangeEndpoint.End, caret, TextPatternRangeEndpoint.Start);
+            caret.Select();
+            caret.ScrollIntoView(false);
+        }
+        catch
+        {
+        }
+    }
+
+    private static int ResolveSentenceStartOffset(string paragraphText, List<string> sentences, int sentenceIndex)
+    {
+        int runningOffset = 0;
+
+        for (int i = 0; i <= sentenceIndex && i < sentences.Count; i++)
+        {
+            int start = paragraphText.IndexOf(sentences[i], runningOffset, StringComparison.Ordinal);
+            if (start < 0)
+            {
+                return runningOffset;
+            }
+
+            if (i == sentenceIndex)
+            {
+                return start;
+            }
+
+            runningOffset = start + sentences[i].Length;
+        }
+
+        return 0;
     }
 
     private static string Normalize(string? text) =>
