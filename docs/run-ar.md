@@ -40,6 +40,8 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
   - `Insert+R` لتحديث المخزن الظاهري
   - `Insert+B` لملخص حالة المخزن الظاهري
   - `Insert+Y` لمزامنة المخزن الظاهري مع العنصر الحالي
+  - `Insert+Up / Insert+Down` لقراءة السطر السابق أو اللاحق
+  - `Insert+Left / Insert+Right` لقراءة الحرف السابق أو اللاحق
 - داخل المتصفح:
   - `H / K / E` للعنصر التالي
   - `Shift+H / Shift+K / Shift+E` للعنصر السابق

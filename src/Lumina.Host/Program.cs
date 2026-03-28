@@ -20,6 +20,8 @@ Console.WriteLine("Insert+S لقراءة ملخص الصفحة الحالية.")
 Console.WriteLine("Insert+R لتحديث المخزن الظاهري للصفحة.");
 Console.WriteLine("Insert+B لملخص حالة المخزن الظاهري.");
 Console.WriteLine("Insert+Y لمزامنة المخزن الظاهري مع العنصر الحالي.");
+Console.WriteLine("Insert+Up/Down لقراءة السطر السابق أو اللاحق.");
+Console.WriteLine("Insert+Left/Right لقراءة الحرف السابق أو اللاحق.");
 Console.WriteLine("داخل المتصفح: H/K/E للعنصر التالي وShift+H/K/E للعنصر السابق.");
 Console.WriteLine("اضغط Ctrl+C للإيقاف.");
 
@@ -99,6 +101,26 @@ using var hotKeys = new KeyboardCommandManager(
     syncVirtualBufferToFocus: () =>
     {
         string text = BrowserVirtualBuffer.SyncToFocusedElement();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    readPreviousLine: () =>
+    {
+        string text = TextReviewCursor.ReadPreviousLine();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    readNextLine: () =>
+    {
+        string text = TextReviewCursor.ReadNextLine();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    readPreviousCharacter: () =>
+    {
+        string text = TextReviewCursor.ReadPreviousCharacter();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    readNextCharacter: () =>
+    {
+        string text = TextReviewCursor.ReadNextCharacter();
         speechService.Enqueue(new SpeechRequest(text, 100, true));
     });
 

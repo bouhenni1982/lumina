@@ -28,6 +28,10 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkR = 0x52;
     private const uint VkB = 0x42;
     private const uint VkY = 0x59;
+    private const uint VkUp = 0x26;
+    private const uint VkDown = 0x28;
+    private const uint VkLeft = 0x25;
+    private const uint VkRight = 0x27;
 
     private const uint VkH = 0x48;
     private const uint VkK = 0x4B;
@@ -48,6 +52,10 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _refreshVirtualBuffer;
     private readonly Action _summarizeVirtualBuffer;
     private readonly Action _syncVirtualBufferToFocus;
+    private readonly Action _readPreviousLine;
+    private readonly Action _readNextLine;
+    private readonly Action _readPreviousCharacter;
+    private readonly Action _readNextCharacter;
 
     private readonly HookProc _hookProc;
     private Thread? _messageLoopThread;
@@ -71,7 +79,11 @@ public sealed class KeyboardCommandManager : IDisposable
         Action summarizeCurrentPage,
         Action refreshVirtualBuffer,
         Action summarizeVirtualBuffer,
-        Action syncVirtualBufferToFocus)
+        Action syncVirtualBufferToFocus,
+        Action readPreviousLine,
+        Action readNextLine,
+        Action readPreviousCharacter,
+        Action readNextCharacter)
     {
         _speakCurrentFocus = speakCurrentFocus;
         _repeatLastSpeech = repeatLastSpeech;
@@ -88,6 +100,10 @@ public sealed class KeyboardCommandManager : IDisposable
         _refreshVirtualBuffer = refreshVirtualBuffer;
         _summarizeVirtualBuffer = summarizeVirtualBuffer;
         _syncVirtualBufferToFocus = syncVirtualBufferToFocus;
+        _readPreviousLine = readPreviousLine;
+        _readNextLine = readNextLine;
+        _readPreviousCharacter = readPreviousCharacter;
+        _readNextCharacter = readNextCharacter;
         _hookProc = HookCallback;
     }
 
@@ -211,6 +227,10 @@ public sealed class KeyboardCommandManager : IDisposable
             VkR => _refreshVirtualBuffer,
             VkB => _summarizeVirtualBuffer,
             VkY => _syncVirtualBufferToFocus,
+            VkUp => _readPreviousLine,
+            VkDown => _readNextLine,
+            VkLeft => _readPreviousCharacter,
+            VkRight => _readNextCharacter,
             _ => null
         };
 
