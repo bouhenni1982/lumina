@@ -18,6 +18,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkShift = 0x10;
     private const uint VkControl = 0x11;
     private const uint VkMenu = 0x12;
+    private const uint VkRMenu = 0xA5;
     private const uint VkLWin = 0x5B;
     private const uint VkRWin = 0x5C;
 
@@ -408,6 +409,7 @@ public sealed class KeyboardCommandManager : IDisposable
         bool controlDown = IsKeyCurrentlyDown(VkControl);
         bool altDown = IsKeyCurrentlyDown(VkMenu);
         bool winDown = IsKeyCurrentlyDown(VkLWin) || IsKeyCurrentlyDown(VkRWin);
+        bool altGrDown = IsKeyCurrentlyDown(VkRMenu);
 
         if (ShouldLeaveAutoFocusedEdit(vkCode, controlDown, altDown, winDown, isExtendedNavigationKey))
         {
@@ -448,6 +450,17 @@ public sealed class KeyboardCommandManager : IDisposable
             }
 
             if (TryHandleScreenReaderCommand(vkCode, shiftDown))
+            {
+                return (IntPtr)1;
+            }
+        }
+
+        if (!_insertDown &&
+            !winDown &&
+            !_textReviewMode &&
+            IsBrowserTableNavigationContext(vkCode, isExtendedNavigationKey, controlDown, altDown, altGrDown))
+        {
+            if (TryHandleBrowserTableNavigation(vkCode))
             {
                 return (IntPtr)1;
             }
@@ -617,8 +630,8 @@ public sealed class KeyboardCommandManager : IDisposable
             VkX => _moveToNextCheckbox,
             VkD when shiftDown => _moveToPreviousLandmark,
             VkD => _moveToNextLandmark,
-            VkT when shiftDown => _moveToPreviousTable,
-            VkT => _moveToNextTable,
+            VkY when shiftDown => _moveToPreviousTable,
+            VkY => _moveToNextTable,
             VkLBrowser when shiftDown => _moveToPreviousList,
             VkLBrowser => _moveToNextList,
             VkA when shiftDown => _moveToPreviousDialog,
@@ -664,6 +677,26 @@ public sealed class KeyboardCommandManager : IDisposable
         return true;
     }
 
+    private bool TryHandleBrowserTableNavigation(uint vkCode)
+    {
+        Action? action = vkCode switch
+        {
+            VkLeft => _moveToPreviousTableCell,
+            VkRight => _moveToNextTableCell,
+            VkUp => _moveToTableCellAbove,
+            VkDown => _moveToTableCellBelow,
+            _ => null
+        };
+
+        if (action is null)
+        {
+            return false;
+        }
+
+        ThreadPool.QueueUserWorkItem(_ => action());
+        return true;
+    }
+
     private bool IsBrowserNavigationContext()
     {
         if (!_browserBrowseMode)
@@ -689,6 +722,32 @@ public sealed class KeyboardCommandManager : IDisposable
         }
 
         return FocusSnapshotReader.IsBrowserContext(focused);
+    }
+
+    private bool IsBrowserTableNavigationContext(
+        uint vkCode,
+        bool isExtendedNavigationKey,
+        bool controlDown,
+        bool altDown,
+        bool altGrDown)
+    {
+        if (!_browserBrowseMode ||
+            !isExtendedNavigationKey ||
+            !altDown ||
+            !controlDown ||
+            !altGrDown)
+        {
+            return false;
+        }
+
+        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+        if (focused is null || !FocusSnapshotReader.IsBrowserContext(focused))
+        {
+            return false;
+        }
+
+        return vkCode is VkUp or VkDown or VkLeft or VkRight &&
+            BrowserNavigator.IsFocusedElementInsideTable();
     }
 
     private bool IsBrowserArrowReadingContext(uint vkCode, bool isExtendedNavigationKey)

@@ -8,10 +8,12 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
 {
     private readonly Dictionary<string, Lua> _luaStates = new(StringComparer.OrdinalIgnoreCase);
     private readonly string _scriptsDirectory;
+    private readonly string _userScriptsDirectory;
 
     public SimpleLuaStyleScriptEngine()
     {
         _scriptsDirectory = ResolveScriptsDirectory();
+        _userScriptsDirectory = ResolveUserScriptsDirectory();
     }
 
     public SpeechRequest Handle(ScreenEvent screenEvent)
@@ -57,16 +59,12 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
         }
 
         Lua lua = new();
-        string defaultScriptPath = Path.Combine(_scriptsDirectory, "focus_profile.lua");
-        if (File.Exists(defaultScriptPath))
+        foreach (string scriptPath in EnumerateScriptLoadOrder(normalizedProcessName))
         {
-            lua.DoFile(defaultScriptPath);
-        }
-
-        string appScriptPath = Path.Combine(_scriptsDirectory, "apps", $"{normalizedProcessName}.lua");
-        if (File.Exists(appScriptPath))
-        {
-            lua.DoFile(appScriptPath);
+            if (File.Exists(scriptPath))
+            {
+                lua.DoFile(scriptPath);
+            }
         }
 
         _luaStates[normalizedProcessName] = lua;
@@ -84,6 +82,29 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
         ];
 
         return candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];
+    }
+
+    private static string ResolveUserScriptsDirectory()
+    {
+        string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (!string.IsNullOrWhiteSpace(localAppData))
+        {
+            return Path.Combine(localAppData, "Lumina", "scripts");
+        }
+
+        return Path.Combine(Directory.GetCurrentDirectory(), "scripts", "user");
+    }
+
+    private IEnumerable<string> EnumerateScriptLoadOrder(string normalizedProcessName)
+    {
+        yield return Path.Combine(_scriptsDirectory, "focus_profile.lua");
+        yield return Path.Combine(_scriptsDirectory, "apps", $"{normalizedProcessName}.lua");
+
+        yield return Path.Combine(_scriptsDirectory, "user", "focus_profile.lua");
+        yield return Path.Combine(_scriptsDirectory, "user", "apps", $"{normalizedProcessName}.lua");
+
+        yield return Path.Combine(_userScriptsDirectory, "focus_profile.lua");
+        yield return Path.Combine(_userScriptsDirectory, "apps", $"{normalizedProcessName}.lua");
     }
 
     private static LuaTable BuildEventTable(Lua lua, ScreenEvent screenEvent)

@@ -45,9 +45,9 @@ try
     Console.WriteLine("Insert+Left/Right للكلمة السابقة أو اللاحقة.");
     Console.WriteLine("Insert+PageUp/PageDown للجملة السابقة أو اللاحقة.");
     Console.WriteLine("داخل وضع المراجعة: الأسهم للحرف والسطر وCtrl+الأسهم للكلمة والفقرة وHome/End لبداية ونهاية السطر.");
-    Console.WriteLine("داخل المتصفح: H/K/E/B/X/D/T/L/A/F للتنقل بين العناوين والروابط والحقول والأزرار وخانات الاختيار والمعالم والجداول والقوائم والحوارات وعناصر النماذج.");
+    Console.WriteLine("داخل المتصفح: H/K/E/B/X/D/Y/L/A/F للتنقل بين العناوين والروابط والحقول والأزرار وخانات الاختيار والمعالم والجداول والقوائم والحوارات وعناصر النماذج.");
     Console.WriteLine("Insert+Space داخل المتصفح للتبديل بين وضع التصفح ووضع التركيز. وEscape للرجوع إلى وضع التصفح.");
-    Console.WriteLine("داخل الجداول: Shift+Insert+T لقراءة سياق الجدول الحالي.");
+    Console.WriteLine("داخل الجداول: Shift+Insert+T لقراءة سياق الجدول الحالي، وAltGr مع الأسهم للتنقل بين الخلايا.");
     Console.WriteLine("اضغط Ctrl+C للإيقاف.");
 
     var speechService = new SapiSpeechService();

@@ -28,7 +28,7 @@
 - `B / Shift+B`
 - `X / Shift+X`
 - `D / Shift+D`
-- `T / Shift+T`
+- `Y / Shift+Y`
 - `L / Shift+L`
 - `A / Shift+A`
 - `F / Shift+F`
@@ -124,8 +124,10 @@
 اختبر صفحة فيها جدول حقيقي.
 
 جرّب:
-- `T` للوصول إلى الجدول
+- `Y` للوصول إلى الجدول
 - `Shift+Insert+T` لقراءة سياق الجدول
+- `AltGr+Left / AltGr+Right` للتنقل أفقيًا بين الخلايا
+- `AltGr+Up / AltGr+Down` للتنقل رأسيًا بين الخلايا
 
 دوّن:
 - هل يعلن اسم الجدول؟

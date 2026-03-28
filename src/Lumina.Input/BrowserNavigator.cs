@@ -151,6 +151,17 @@ public static class BrowserNavigator
     public static string MoveToNextFormField() => MoveToNextFormFieldCore(moveNext: true);
     public static string MoveToPreviousFormField() => MoveToNextFormFieldCore(moveNext: false);
     public static string ReadCurrentTableContext() => DescribeCurrentTableContext();
+    public static bool IsFocusedElementInsideTable()
+    {
+        AutomationElement? current = FocusSnapshotReader.GetFocusedElement();
+        if (current is null || !FocusSnapshotReader.IsBrowserContext(current))
+        {
+            return false;
+        }
+
+        return FindAncestorBySemanticRole(current, "web_table") is not null;
+    }
+
     public static string MoveToNextTableCell() => MoveToAdjacentTableCell(moveNext: true);
     public static string MoveToPreviousTableCell() => MoveToAdjacentTableCell(moveNext: false);
     public static string MoveToTableCellBelow() => MoveToVerticalTableCell(moveDown: true);

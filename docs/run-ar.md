@@ -38,6 +38,8 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
   - `Insert+I` لإظهار أو إخفاء Inspector
   - `Insert+T` لقراءة عنوان الصفحة أو النافذة الحالية في المتصفح
   - `Shift+Insert+T` لقراءة سياق الجدول الحالي داخل المتصفح
+  - `Y / Shift+Y` للتنقل إلى الجدول التالي أو السابق داخل المتصفح
+  - `AltGr+الأسهم` للتنقل داخل خلايا الجداول
   - `Insert+Home` لقراءة ملخص النافذة الحالية
   - `Insert+End` لقراءة حالة العنصر الحالي
   - `Insert+W` لقراءة ملخص ويب للعنصر الحالي
@@ -57,8 +59,8 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
   - `Ctrl+Up / Ctrl+Down` للفقرة السابقة أو اللاحقة
   - `Home / End` لبداية ونهاية السطر
 - داخل المتصفح:
-  - `H / K / E` للعنصر التالي
-  - `Shift+H / Shift+K / Shift+E` للعنصر السابق
+  - `H / K / E / Y` للعنصر التالي
+  - `Shift+H / Shift+K / Shift+E / Shift+Y` للعنصر السابق
 
 ## ما الذي لم يكتمل بعد
 

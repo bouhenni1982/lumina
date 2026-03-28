@@ -113,6 +113,8 @@ Lumina.Host
   مثل `onFocusChanged`, `onValueChanged`, `onAnnouncement`.
 - `App Profiles`
   قواعد مخصصة لكل تطبيق مثل Chrome أو Word أو Explorer.
+- `User Overrides`
+  تسمح بتحميل سكربتات مخصصة للمستخدم فوق السكربتات الأصلية مع أولوية أعلى.
 
 ### Input Layer
 
