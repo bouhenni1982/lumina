@@ -176,7 +176,7 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
             _ => $"{node.Role} {node.Name}"
         };
 
-        if (!string.IsNullOrWhiteSpace(node.Value))
+        if (ShouldIncludeValueInFocusSpeech(node))
         {
             text = $"{text}. القيمة {node.Value}";
         }
@@ -195,6 +195,27 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
             Text: text,
             Priority: screenEvent.Priority,
             Interrupt: true);
+    }
+
+    private static bool ShouldIncludeValueInFocusSpeech(AccessibleNode node)
+    {
+        if (string.IsNullOrWhiteSpace(node.Value))
+        {
+            return false;
+        }
+
+        if (node.Role is not "edit" and not "document" &&
+            node.SemanticRole is not "web_edit" and not "web_document")
+        {
+            return true;
+        }
+
+        if (node.Value.Contains('\n') || node.Value.Contains('\r'))
+        {
+            return false;
+        }
+
+        return node.Value.Length <= 120;
     }
 
     private static bool IsCorruptedLuaSpeech(string text)
