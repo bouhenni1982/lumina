@@ -73,10 +73,13 @@ public static class BrowserNavigator
     }
 
     public static string MoveToNextLink() => MoveToNextSemanticRole("web_link", "لا يوجد رابط تال في الصفحة.");
+    public static string MoveToPreviousLink() => MoveToPreviousSemanticRole("web_link", "لا يوجد رابط سابق في الصفحة.");
 
     public static string MoveToNextHeading() => MoveToNextSemanticRole("web_heading", "لا يوجد عنوان تال في الصفحة.");
+    public static string MoveToPreviousHeading() => MoveToPreviousSemanticRole("web_heading", "لا يوجد عنوان سابق في الصفحة.");
 
     public static string MoveToNextEditField() => MoveToNextSemanticRole("web_edit", "لا يوجد حقل إدخال تال في الصفحة.");
+    public static string MoveToPreviousEditField() => MoveToPreviousSemanticRole("web_edit", "لا يوجد حقل إدخال سابق في الصفحة.");
 
     private static string MoveToNextSemanticRole(string semanticRole, string missingMessage)
     {
@@ -100,6 +103,45 @@ public static class BrowserNavigator
 
         int currentIndex = elements.FindIndex(element => SameElement(element, current));
         IEnumerable<AutomationElement> orderedCandidates = EnumerateAfterCurrent(elements, currentIndex)
+            .Where(element => FocusSnapshotReader.ResolveWebSemanticRole(element) == semanticRole);
+
+        foreach (AutomationElement candidate in orderedCandidates)
+        {
+            try
+            {
+                candidate.SetFocus();
+                return FocusSnapshotReader.BuildWebSummary(candidate);
+            }
+            catch
+            {
+            }
+        }
+
+        return missingMessage;
+    }
+
+    private static string MoveToPreviousSemanticRole(string semanticRole, string missingMessage)
+    {
+        AutomationElement? current = FocusSnapshotReader.GetFocusedElement();
+        if (current is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
+        if (!FocusSnapshotReader.IsBrowserContext(current))
+        {
+            return "العنصر الحالي ليس ضمن سياق ويب معروف.";
+        }
+
+        AutomationElement root = ResolveNavigationRoot(current);
+        List<AutomationElement> elements = EnumerateElements(root).ToList();
+        if (elements.Count == 0)
+        {
+            return missingMessage;
+        }
+
+        int currentIndex = elements.FindIndex(element => SameElement(element, current));
+        IEnumerable<AutomationElement> orderedCandidates = EnumerateBeforeCurrent(elements, currentIndex)
             .Where(element => FocusSnapshotReader.ResolveWebSemanticRole(element) == semanticRole);
 
         foreach (AutomationElement candidate in orderedCandidates)
@@ -181,6 +223,21 @@ public static class BrowserNavigator
         }
 
         for (int index = 0; index < startIndex && index < elements.Count; index++)
+        {
+            yield return elements[index];
+        }
+    }
+
+    private static IEnumerable<AutomationElement> EnumerateBeforeCurrent(IReadOnlyList<AutomationElement> elements, int currentIndex)
+    {
+        int startIndex = currentIndex < 0 ? elements.Count - 1 : currentIndex - 1;
+
+        for (int index = startIndex; index >= 0; index--)
+        {
+            yield return elements[index];
+        }
+
+        for (int index = elements.Count - 1; index > startIndex; index--)
         {
             yield return elements[index];
         }

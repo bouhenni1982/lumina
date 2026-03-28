@@ -11,20 +11,16 @@ Console.WriteLine("Lumina prototype started.");
 Console.WriteLine("يتابع تغيّر التركيز focus في Windows وينطق العنصر الحالي.");
 Console.WriteLine("يسجل Inspector الأحداث في inspector/focus-events.jsonl.");
 Console.WriteLine("ويعرض نافذة Inspector حيّة لآخر الأحداث.");
-Console.WriteLine("Ctrl+Alt+F لقراءة العنصر الحالي.");
-Console.WriteLine("Ctrl+Alt+L لإعادة آخر رسالة منطوقة.");
-Console.WriteLine("Ctrl+Alt+I لتبديل Inspector.");
-Console.WriteLine("Ctrl+Alt+T لقراءة عنوان الصفحة الحالية في المتصفح.");
-Console.WriteLine("Ctrl+Alt+W لقراءة ملخص ويب سريع للعنصر الحالي.");
-Console.WriteLine("Ctrl+Alt+H للانتقال إلى العنوان التالي في الصفحة.");
-Console.WriteLine("Ctrl+Alt+K للانتقال إلى الرابط التالي في الصفحة.");
-Console.WriteLine("Ctrl+Alt+E للانتقال إلى حقل الإدخال التالي في الصفحة.");
-Console.WriteLine("Ctrl+Alt+S لقراءة ملخص الصفحة الحالية.");
-Console.WriteLine("Ctrl+Alt+R لتحديث المخزن الظاهري للصفحة.");
-Console.WriteLine("Ctrl+Alt+N للعنصر التالي في المخزن الظاهري.");
-Console.WriteLine("Ctrl+Alt+P للعنصر السابق في المخزن الظاهري.");
-Console.WriteLine("Ctrl+Alt+B لملخص حالة المخزن الظاهري.");
-Console.WriteLine("Ctrl+Alt+Y لمزامنة المخزن الظاهري مع العنصر الحالي.");
+Console.WriteLine("Insert+F لقراءة العنصر الحالي.");
+Console.WriteLine("Insert+L لإعادة آخر رسالة منطوقة.");
+Console.WriteLine("Insert+I لتبديل Inspector.");
+Console.WriteLine("Insert+T لقراءة عنوان الصفحة الحالية في المتصفح.");
+Console.WriteLine("Insert+W لقراءة ملخص ويب سريع للعنصر الحالي.");
+Console.WriteLine("Insert+S لقراءة ملخص الصفحة الحالية.");
+Console.WriteLine("Insert+R لتحديث المخزن الظاهري للصفحة.");
+Console.WriteLine("Insert+B لملخص حالة المخزن الظاهري.");
+Console.WriteLine("Insert+Y لمزامنة المخزن الظاهري مع العنصر الحالي.");
+Console.WriteLine("داخل المتصفح: H/K/E للعنصر التالي وShift+H/K/E للعنصر السابق.");
 Console.WriteLine("اضغط Ctrl+C للإيقاف.");
 
 var speechService = new SapiSpeechService();
@@ -37,7 +33,7 @@ using var runtime = new LuminaRuntime(
     speechService,
     inspectorSink);
 
-using var hotKeys = new GlobalHotKeyManager(
+using var hotKeys = new KeyboardCommandManager(
     speakCurrentFocus: () =>
     {
         string text = FocusSnapshotReader.ReadCurrentFocusSummary();
@@ -60,14 +56,29 @@ using var hotKeys = new GlobalHotKeyManager(
         string text = BrowserNavigator.MoveToNextHeading();
         speechService.Enqueue(new SpeechRequest(text, 100, true));
     },
+    moveToPreviousHeading: () =>
+    {
+        string text = BrowserNavigator.MoveToPreviousHeading();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
     moveToNextLink: () =>
     {
         string text = BrowserNavigator.MoveToNextLink();
         speechService.Enqueue(new SpeechRequest(text, 100, true));
     },
+    moveToPreviousLink: () =>
+    {
+        string text = BrowserNavigator.MoveToPreviousLink();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
     moveToNextEditField: () =>
     {
         string text = BrowserNavigator.MoveToNextEditField();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    moveToPreviousEditField: () =>
+    {
+        string text = BrowserNavigator.MoveToPreviousEditField();
         speechService.Enqueue(new SpeechRequest(text, 100, true));
     },
     summarizeCurrentPage: () =>
@@ -78,16 +89,6 @@ using var hotKeys = new GlobalHotKeyManager(
     refreshVirtualBuffer: () =>
     {
         string text = BrowserVirtualBuffer.Refresh();
-        speechService.Enqueue(new SpeechRequest(text, 100, true));
-    },
-    moveToNextBufferItem: () =>
-    {
-        string text = BrowserVirtualBuffer.MoveNext();
-        speechService.Enqueue(new SpeechRequest(text, 100, true));
-    },
-    moveToPreviousBufferItem: () =>
-    {
-        string text = BrowserVirtualBuffer.MovePrevious();
         speechService.Enqueue(new SpeechRequest(text, 100, true));
     },
     summarizeVirtualBuffer: () =>

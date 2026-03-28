@@ -117,6 +117,8 @@ Lumina.Host
 ### Input Layer
 
 - التقاط لوحة المفاتيح عبر low-level hook
+- النسخة الحالية تستخدم `Insert` كمفتاح قارئ الشاشة بدل `Ctrl+Alt`
+- التنقل داخل المتصفح يعمل بالحروف `H/K/E` ونسخها السابقة مع `Shift`
 - تعريف أوامر خاصة مثل:
   - قراءة العنصر الحالي
   - قراءة السطر الحالي
@@ -203,7 +205,7 @@ lumina/
 
 ### Lumina.Input
 
-- hotkeys
+- keyboard hook
 - key gestures
 - command router
 
