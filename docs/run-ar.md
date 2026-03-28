@@ -27,15 +27,14 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
 - تمرر الحدث إلى طبقة السكربت
 - تنطق الناتج
 - تسجل Inspector في `inspector/focus-events.jsonl`
+- تعرض نافذة Inspector حيّة فيها آخر أحداث focus
 - تدعم hotkeys:
   - `Ctrl+Alt+F` لقراءة العنصر الحالي
   - `Ctrl+Alt+L` لإعادة آخر نطق
-  - `Ctrl+Alt+I` لتفعيل أو تعطيل Inspector
+  - `Ctrl+Alt+I` لإظهار أو إخفاء Inspector وإيقافه مؤقتًا
 
 ## ما الذي لم يكتمل بعد
 
-- دمج Lua الحقيقي بدل المحرك المؤقت
-- دعم `MSAA` و `IAccessible2`
+- دعم `IAccessible2`
 - اعتراض لوحة المفاتيح
-- أداة inspection
 - طبقة AI وOCR

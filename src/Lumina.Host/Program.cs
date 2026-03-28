@@ -10,13 +10,16 @@ Console.OutputEncoding = System.Text.Encoding.UTF8;
 Console.WriteLine("Lumina prototype started.");
 Console.WriteLine("يتابع تغيّر التركيز focus في Windows وينطق العنصر الحالي.");
 Console.WriteLine("يسجل Inspector الأحداث في inspector/focus-events.jsonl.");
+Console.WriteLine("ويعرض نافذة Inspector حيّة لآخر الأحداث.");
 Console.WriteLine("Ctrl+Alt+F لقراءة العنصر الحالي.");
 Console.WriteLine("Ctrl+Alt+L لإعادة آخر رسالة منطوقة.");
 Console.WriteLine("Ctrl+Alt+I لتبديل Inspector.");
 Console.WriteLine("اضغط Ctrl+C للإيقاف.");
 
 var speechService = new SapiSpeechService();
-var inspectorSink = new JsonInspectorSink();
+var inspectorSink = new CompositeInspectorSink(
+    new JsonInspectorSink(),
+    new LiveInspectorSink());
 using var runtime = new LuminaRuntime(
     new UiaAccessibilityService(),
     new SimpleLuaStyleScriptEngine(),
