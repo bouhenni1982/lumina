@@ -47,6 +47,7 @@ try
     Console.WriteLine("داخل وضع المراجعة: الأسهم للحرف والسطر وCtrl+الأسهم للكلمة والفقرة وHome/End لبداية ونهاية السطر.");
     Console.WriteLine("داخل المتصفح: H/K/E/B/X/D/T/L/A/F للتنقل بين العناوين والروابط والحقول والأزرار وخانات الاختيار والمعالم والجداول والقوائم والحوارات وعناصر النماذج.");
     Console.WriteLine("Insert+Space داخل المتصفح للتبديل بين وضع التصفح ووضع التركيز. وEscape للرجوع إلى وضع التصفح.");
+    Console.WriteLine("داخل الجداول: Insert+T لقراءة سياق الجدول، وCtrl+Left/Right للتنقل بين الخلايا عند الإمكان.");
     Console.WriteLine("اضغط Ctrl+C للإيقاف.");
 
     var speechService = new SapiSpeechService();
@@ -300,6 +301,21 @@ try
         moveToPreviousFormField: () =>
         {
             string text = BrowserNavigator.MoveToPreviousFormField();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        readCurrentTableContext: () =>
+        {
+            string text = BrowserNavigator.ReadCurrentTableContext();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextTableCell: () =>
+        {
+            string text = BrowserNavigator.MoveToNextTableCell();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousTableCell: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousTableCell();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         summarizeCurrentPage: () =>

@@ -150,6 +150,9 @@ public static class BrowserNavigator
 
     public static string MoveToNextFormField() => MoveToNextFormFieldCore(moveNext: true);
     public static string MoveToPreviousFormField() => MoveToNextFormFieldCore(moveNext: false);
+    public static string ReadCurrentTableContext() => DescribeCurrentTableContext();
+    public static string MoveToNextTableCell() => MoveToAdjacentTableCell(moveNext: true);
+    public static string MoveToPreviousTableCell() => MoveToAdjacentTableCell(moveNext: false);
 
     private static string MoveToNextSemanticRole(string semanticRole, string missingMessage)
     {
@@ -279,6 +282,83 @@ public static class BrowserNavigator
             : "لا يوجد عنصر نموذج سابق في الصفحة.";
     }
 
+    private static string DescribeCurrentTableContext()
+    {
+        AutomationElement? current = FocusSnapshotReader.GetFocusedElement();
+        if (current is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
+        if (!FocusSnapshotReader.IsBrowserContext(current))
+        {
+            return "العنصر الحالي ليس ضمن سياق ويب معروف.";
+        }
+
+        AutomationElement? table = FindAncestorBySemanticRole(current, "web_table");
+        if (table is null)
+        {
+            return "العنصر الحالي ليس داخل جدول معروف.";
+        }
+
+        List<string> segments = [];
+        segments.Add(FocusSnapshotReader.BuildWebSummary(table));
+
+        if (TryDescribeCurrentCell(current, out string? cellSummary))
+        {
+            segments.Add(cellSummary!);
+        }
+
+        try
+        {
+            if (table.TryGetCurrentPattern(GridPattern.Pattern, out object? gridPatternObject))
+            {
+                GridPattern grid = (GridPattern)gridPatternObject;
+                segments.Add($"الصفوف {grid.Current.RowCount}");
+                segments.Add($"الأعمدة {grid.Current.ColumnCount}");
+            }
+        }
+        catch
+        {
+        }
+
+        return string.Join(". ", segments);
+    }
+
+    private static string MoveToAdjacentTableCell(bool moveNext)
+    {
+        AutomationElement? current = FocusSnapshotReader.GetFocusedElement();
+        if (current is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
+        if (!FocusSnapshotReader.IsBrowserContext(current))
+        {
+            return "العنصر الحالي ليس ضمن سياق ويب معروف.";
+        }
+
+        AutomationElement? table = FindAncestorBySemanticRole(current, "web_table");
+        if (table is null)
+        {
+            return "العنصر الحالي ليس داخل جدول معروف.";
+        }
+
+        if (TryMoveUsingGridPattern(current, table, moveNext, out string? gridMoveText))
+        {
+            return gridMoveText!;
+        }
+
+        if (TryMoveUsingTableDescendants(current, table, moveNext, out string? descendantMoveText))
+        {
+            return descendantMoveText!;
+        }
+
+        return moveNext
+            ? "لا توجد خلية تالية في هذا الجدول."
+            : "لا توجد خلية سابقة في هذا الجدول.";
+    }
+
     internal static AutomationElement ResolveNavigationRootForBuffer(AutomationElement current) => ResolveNavigationRoot(current);
 
     internal static IEnumerable<AutomationElement> EnumerateBufferCandidates(AutomationElement root) =>
@@ -335,6 +415,127 @@ public static class BrowserNavigator
 
     private static bool IsFormFieldRole(string semanticRole) =>
         semanticRole is "web_edit" or "web_combobox" or "web_checkbox" or "web_radio" or "web_button";
+
+    private static AutomationElement? FindAncestorBySemanticRole(AutomationElement element, string semanticRole) =>
+        FocusSnapshotReader.FindAncestor(
+            element,
+            current => FocusSnapshotReader.ResolveWebSemanticRole(current) == semanticRole);
+
+    private static bool TryDescribeCurrentCell(AutomationElement current, out string? text)
+    {
+        text = null;
+
+        try
+        {
+            if (!current.TryGetCurrentPattern(GridItemPattern.Pattern, out object? gridItemObject))
+            {
+                return false;
+            }
+
+            GridItemPattern gridItem = (GridItemPattern)gridItemObject;
+            string cellName = FocusSnapshotReader.ResolveName(current);
+            text = $"الخلية {cellName}. الصف {gridItem.Current.Row + 1}. العمود {gridItem.Current.Column + 1}";
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryMoveUsingGridPattern(
+        AutomationElement current,
+        AutomationElement table,
+        bool moveNext,
+        out string? text)
+    {
+        text = null;
+
+        try
+        {
+            if (!current.TryGetCurrentPattern(GridItemPattern.Pattern, out object? gridItemObject) ||
+                !table.TryGetCurrentPattern(GridPattern.Pattern, out object? gridObject))
+            {
+                return false;
+            }
+
+            GridItemPattern gridItem = (GridItemPattern)gridItemObject;
+            GridPattern grid = (GridPattern)gridObject;
+
+            int row = gridItem.Current.Row;
+            int column = gridItem.Current.Column + (moveNext ? 1 : -1);
+
+            if (column < 0 || column >= grid.Current.ColumnCount)
+            {
+                return false;
+            }
+
+            AutomationElement target = grid.GetItem(row, column);
+            target.SetFocus();
+            text = BuildTableCellSummary(target);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryMoveUsingTableDescendants(
+        AutomationElement current,
+        AutomationElement table,
+        bool moveNext,
+        out string? text)
+    {
+        text = null;
+
+        try
+        {
+            List<AutomationElement> descendants = EnumerateElements(table)
+                .Where(candidate =>
+                {
+                    string role = FocusSnapshotReader.ResolveRole(candidate);
+                    return role is "dataitem" or "listitem" or "text" or "edit" or "button";
+                })
+                .ToList();
+
+            if (descendants.Count == 0)
+            {
+                return false;
+            }
+
+            int currentIndex = descendants.FindIndex(element => SameElement(element, current));
+            if (currentIndex < 0)
+            {
+                currentIndex = 0;
+            }
+
+            int nextIndex = moveNext ? currentIndex + 1 : currentIndex - 1;
+            if (nextIndex < 0 || nextIndex >= descendants.Count)
+            {
+                return false;
+            }
+
+            AutomationElement target = descendants[nextIndex];
+            target.SetFocus();
+            text = BuildTableCellSummary(target);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string BuildTableCellSummary(AutomationElement element)
+    {
+        if (TryDescribeCurrentCell(element, out string? cellText))
+        {
+            return cellText!;
+        }
+
+        return FocusSnapshotReader.BuildWebSummary(element);
+    }
 
     private static IEnumerable<AutomationElement> EnumerateAfterCurrent(IReadOnlyList<AutomationElement> elements, int currentIndex)
     {

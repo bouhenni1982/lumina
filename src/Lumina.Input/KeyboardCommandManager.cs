@@ -111,6 +111,9 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _moveToPreviousDialog;
     private readonly Action _moveToNextFormField;
     private readonly Action _moveToPreviousFormField;
+    private readonly Action _readCurrentTableContext;
+    private readonly Action _moveToNextTableCell;
+    private readonly Action _moveToPreviousTableCell;
     private readonly Action _summarizeCurrentPage;
     private readonly Action _refreshVirtualBuffer;
     private readonly Action _summarizeVirtualBuffer;
@@ -195,6 +198,9 @@ public sealed class KeyboardCommandManager : IDisposable
         Action moveToPreviousDialog,
         Action moveToNextFormField,
         Action moveToPreviousFormField,
+        Action readCurrentTableContext,
+        Action moveToNextTableCell,
+        Action moveToPreviousTableCell,
         Action summarizeCurrentPage,
         Action refreshVirtualBuffer,
         Action summarizeVirtualBuffer,
@@ -266,6 +272,9 @@ public sealed class KeyboardCommandManager : IDisposable
         _moveToPreviousDialog = moveToPreviousDialog;
         _moveToNextFormField = moveToNextFormField;
         _moveToPreviousFormField = moveToPreviousFormField;
+        _readCurrentTableContext = readCurrentTableContext;
+        _moveToNextTableCell = moveToNextTableCell;
+        _moveToPreviousTableCell = moveToPreviousTableCell;
         _summarizeCurrentPage = summarizeCurrentPage;
         _refreshVirtualBuffer = refreshVirtualBuffer;
         _summarizeVirtualBuffer = summarizeVirtualBuffer;
@@ -493,6 +502,8 @@ public sealed class KeyboardCommandManager : IDisposable
             VkN => _moveToNextContextItem,
             VkP => _moveToPreviousContextItem,
             VkQ => _readEditorStatusSummary,
+            VkT when shiftDown => _moveToPreviousTableCell,
+            VkT => _readCurrentTableContext,
             VkC when shiftDown => _moveToPreviousSettingsCheckbox,
             VkC => _moveToNextSettingsCheckbox,
             VkA when shiftDown => _moveToPreviousSettingsButton,
@@ -589,6 +600,8 @@ public sealed class KeyboardCommandManager : IDisposable
             VkA => _moveToNextDialog,
             VkF when shiftDown => _moveToPreviousFormField,
             VkF => _moveToNextFormField,
+            VkLeft when controlDown => _moveToPreviousTableCell,
+            VkRight when controlDown => _moveToNextTableCell,
             _ => null
         };
 
