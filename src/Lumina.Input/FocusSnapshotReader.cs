@@ -4,9 +4,11 @@ namespace Lumina.Input;
 
 public static class FocusSnapshotReader
 {
+    internal static AutomationElement? GetFocusedElement() => AutomationElement.FocusedElement;
+
     public static string ReadCurrentFocusSummary()
     {
-        AutomationElement? element = AutomationElement.FocusedElement;
+        AutomationElement? element = GetFocusedElement();
         if (element is null)
         {
             return "لا يوجد عنصر نشط حاليا.";
@@ -20,7 +22,7 @@ public static class FocusSnapshotReader
 
     public static string ReadCurrentPageTitle()
     {
-        AutomationElement? element = AutomationElement.FocusedElement;
+        AutomationElement? element = GetFocusedElement();
         if (element is null)
         {
             return "لا توجد صفحة نشطة حاليا.";
@@ -41,7 +43,7 @@ public static class FocusSnapshotReader
 
     public static string ReadCurrentWebSummary()
     {
-        AutomationElement? element = AutomationElement.FocusedElement;
+        AutomationElement? element = GetFocusedElement();
         if (element is null)
         {
             return "لا يوجد عنصر ويب نشط حاليا.";
@@ -52,6 +54,11 @@ public static class FocusSnapshotReader
             return "العنصر الحالي ليس ضمن سياق ويب معروف.";
         }
 
+        return BuildWebSummary(element);
+    }
+
+    internal static string BuildWebSummary(AutomationElement element)
+    {
         string semanticRole = ResolveWebSemanticRole(element);
         string name = ResolveName(element);
         string pageTitle = ResolveWindowTitle(element);
@@ -81,7 +88,7 @@ public static class FocusSnapshotReader
         return text;
     }
 
-    private static bool IsBrowserContext(AutomationElement element)
+    internal static bool IsBrowserContext(AutomationElement element)
     {
         string processName = ResolveProcessName(element);
         if (processName is "chrome" or "msedge" or "firefox" or "electron" or "code" or "teams")
@@ -94,7 +101,7 @@ public static class FocusSnapshotReader
                className.Contains("Mozilla", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string ResolveWebSemanticRole(AutomationElement element)
+    internal static string ResolveWebSemanticRole(AutomationElement element)
     {
         string role = ResolveRole(element);
         string localizedRole = (element.Current.LocalizedControlType ?? string.Empty).ToLowerInvariant();
@@ -134,7 +141,7 @@ public static class FocusSnapshotReader
         return "web_control";
     }
 
-    private static string ResolveWindowTitle(AutomationElement element)
+    internal static string ResolveWindowTitle(AutomationElement element)
     {
         AutomationElement? window = FindAncestor(
             element,
@@ -143,7 +150,7 @@ public static class FocusSnapshotReader
         return window is null ? string.Empty : ResolveName(window);
     }
 
-    private static string TryReadValue(AutomationElement element)
+    internal static string TryReadValue(AutomationElement element)
     {
         if (element.TryGetCurrentPattern(ValuePattern.Pattern, out object? pattern))
         {
@@ -153,14 +160,14 @@ public static class FocusSnapshotReader
         return string.Empty;
     }
 
-    private static string ResolveName(AutomationElement element) =>
+    internal static string ResolveName(AutomationElement element) =>
         string.IsNullOrWhiteSpace(element.Current.Name) ? "عنصر غير مسمى" : element.Current.Name;
 
-    private static string ResolveRole(AutomationElement element) =>
+    internal static string ResolveRole(AutomationElement element) =>
         element.Current.ControlType?.ProgrammaticName?.Replace("ControlType.", "").ToLowerInvariant()
         ?? "control";
 
-    private static string ResolveProcessName(AutomationElement element)
+    internal static string ResolveProcessName(AutomationElement element)
     {
         try
         {
@@ -172,7 +179,7 @@ public static class FocusSnapshotReader
         }
     }
 
-    private static AutomationElement? FindAncestor(
+    internal static AutomationElement? FindAncestor(
         AutomationElement element,
         Func<AutomationElement, bool> predicate)
     {

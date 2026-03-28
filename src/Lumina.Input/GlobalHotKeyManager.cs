@@ -12,12 +12,18 @@ public sealed class GlobalHotKeyManager : IDisposable
     private const uint VkI = 0x49;
     private const uint VkT = 0x54;
     private const uint VkW = 0x57;
+    private const uint VkH = 0x48;
+    private const uint VkK = 0x4B;
+    private const uint VkE = 0x45;
 
     private readonly Action _speakCurrentFocus;
     private readonly Action _repeatLastSpeech;
     private readonly Action _toggleInspector;
     private readonly Action _speakPageTitle;
     private readonly Action _speakWebSummary;
+    private readonly Action _moveToNextHeading;
+    private readonly Action _moveToNextLink;
+    private readonly Action _moveToNextEditField;
     private Thread? _messageLoopThread;
     private volatile bool _running;
     private uint _threadId;
@@ -27,13 +33,19 @@ public sealed class GlobalHotKeyManager : IDisposable
         Action repeatLastSpeech,
         Action toggleInspector,
         Action speakPageTitle,
-        Action speakWebSummary)
+        Action speakWebSummary,
+        Action moveToNextHeading,
+        Action moveToNextLink,
+        Action moveToNextEditField)
     {
         _speakCurrentFocus = speakCurrentFocus;
         _repeatLastSpeech = repeatLastSpeech;
         _toggleInspector = toggleInspector;
         _speakPageTitle = speakPageTitle;
         _speakWebSummary = speakWebSummary;
+        _moveToNextHeading = moveToNextHeading;
+        _moveToNextLink = moveToNextLink;
+        _moveToNextEditField = moveToNextEditField;
     }
 
     public void Start()
@@ -70,6 +82,9 @@ public sealed class GlobalHotKeyManager : IDisposable
         RegisterHotKey(IntPtr.Zero, 3, ModControl | ModAlt, VkI);
         RegisterHotKey(IntPtr.Zero, 4, ModControl | ModAlt, VkT);
         RegisterHotKey(IntPtr.Zero, 5, ModControl | ModAlt, VkW);
+        RegisterHotKey(IntPtr.Zero, 6, ModControl | ModAlt, VkH);
+        RegisterHotKey(IntPtr.Zero, 7, ModControl | ModAlt, VkK);
+        RegisterHotKey(IntPtr.Zero, 8, ModControl | ModAlt, VkE);
 
         try
         {
@@ -88,6 +103,9 @@ public sealed class GlobalHotKeyManager : IDisposable
             UnregisterHotKey(IntPtr.Zero, 3);
             UnregisterHotKey(IntPtr.Zero, 4);
             UnregisterHotKey(IntPtr.Zero, 5);
+            UnregisterHotKey(IntPtr.Zero, 6);
+            UnregisterHotKey(IntPtr.Zero, 7);
+            UnregisterHotKey(IntPtr.Zero, 8);
         }
     }
 
@@ -109,6 +127,15 @@ public sealed class GlobalHotKeyManager : IDisposable
                 break;
             case 5:
                 _speakWebSummary();
+                break;
+            case 6:
+                _moveToNextHeading();
+                break;
+            case 7:
+                _moveToNextLink();
+                break;
+            case 8:
+                _moveToNextEditField();
                 break;
         }
     }

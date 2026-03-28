@@ -16,6 +16,9 @@ Console.WriteLine("Ctrl+Alt+L لإعادة آخر رسالة منطوقة.");
 Console.WriteLine("Ctrl+Alt+I لتبديل Inspector.");
 Console.WriteLine("Ctrl+Alt+T لقراءة عنوان الصفحة الحالية في المتصفح.");
 Console.WriteLine("Ctrl+Alt+W لقراءة ملخص ويب سريع للعنصر الحالي.");
+Console.WriteLine("Ctrl+Alt+H للانتقال إلى العنوان التالي في الصفحة.");
+Console.WriteLine("Ctrl+Alt+K للانتقال إلى الرابط التالي في الصفحة.");
+Console.WriteLine("Ctrl+Alt+E للانتقال إلى حقل الإدخال التالي في الصفحة.");
 Console.WriteLine("اضغط Ctrl+C للإيقاف.");
 
 var speechService = new SapiSpeechService();
@@ -44,6 +47,21 @@ using var hotKeys = new GlobalHotKeyManager(
     speakWebSummary: () =>
     {
         string text = FocusSnapshotReader.ReadCurrentWebSummary();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    moveToNextHeading: () =>
+    {
+        string text = BrowserNavigator.MoveToNextHeading();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    moveToNextLink: () =>
+    {
+        string text = BrowserNavigator.MoveToNextLink();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    moveToNextEditField: () =>
+    {
+        string text = BrowserNavigator.MoveToNextEditField();
         speechService.Enqueue(new SpeechRequest(text, 100, true));
     });
 
