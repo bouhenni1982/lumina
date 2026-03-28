@@ -31,6 +31,11 @@ public static class FocusSnapshotReader
             text = $"{text}. اختصار {shortcutKey}";
         }
 
+        if (IsMenuLikeContext(element))
+        {
+            text = $"{text}. {BuildMenuContextSummary(element)}";
+        }
+
         return text;
     }
 
@@ -88,6 +93,11 @@ public static class FocusSnapshotReader
         if (IsSettingsLikeContext(element))
         {
             segments.Add(BuildSettingsContextSummary(element));
+        }
+
+        if (IsMenuLikeContext(element))
+        {
+            segments.Add(BuildMenuContextSummary(element));
         }
 
         if (!string.IsNullOrWhiteSpace(windowTitle))
@@ -220,6 +230,11 @@ public static class FocusSnapshotReader
             segments.Add(BuildSettingsContextSummary(element));
         }
 
+        if (IsMenuLikeContext(element))
+        {
+            segments.Add(BuildMenuContextSummary(element));
+        }
+
         return string.Join(". ", segments);
     }
 
@@ -276,6 +291,11 @@ public static class FocusSnapshotReader
         if (IsSettingsLikeContext(element))
         {
             segments.Add(BuildSettingsContextSummary(element));
+        }
+
+        if (IsMenuLikeContext(element))
+        {
+            segments.Add(BuildMenuContextSummary(element));
         }
 
         return string.Join(". ", segments);
@@ -571,6 +591,23 @@ public static class FocusSnapshotReader
                titleOrMetadataSuggestsSettings;
     }
 
+    internal static bool IsMenuLikeContext(AutomationElement element)
+    {
+        string role = ResolveRole(element);
+        if (role is "menuitem" or "menu" or "menubar")
+        {
+            return true;
+        }
+
+        return FindAncestor(
+            element,
+            current =>
+            {
+                string currentRole = ResolveRole(current);
+                return currentRole is "menuitem" or "menu" or "menubar";
+            }) is not null;
+    }
+
     internal static string BuildSettingsContextSummary(AutomationElement element)
     {
         AutomationElement? group = FindAncestor(
@@ -624,6 +661,108 @@ public static class FocusSnapshotReader
         return segments.Count == 0
             ? "ضمن سياق إعدادات"
             : string.Join(". ", segments);
+    }
+
+    internal static string BuildMenuContextSummary(AutomationElement element)
+    {
+        List<string> segments = [];
+        string path = BuildMenuPath(element);
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            segments.Add($"مسار القائمة {path}");
+        }
+
+        AutomationElement? container = FindAncestor(
+            element,
+            current =>
+            {
+                string role = ResolveRole(current);
+                return role is "menu" or "menubar";
+            });
+
+        if (container is not null)
+        {
+            int menuItemCount = CountDescendants(container, ControlType.MenuItem);
+            if (menuItemCount > 0)
+            {
+                segments.Add($"عدد عناصر القائمة {menuItemCount}");
+            }
+        }
+
+        (int position, int total)? itemPosition = TryGetMenuItemPosition(element);
+        if (itemPosition is not null)
+        {
+            segments.Add($"الترتيب {itemPosition.Value.position} من {itemPosition.Value.total}");
+        }
+
+        return segments.Count == 0
+            ? "ضمن قائمة"
+            : string.Join(". ", segments);
+    }
+
+    private static string BuildMenuPath(AutomationElement element)
+    {
+        List<string> parts = [];
+        AutomationElement? current = element;
+
+        while (current is not null)
+        {
+            string role = ResolveRole(current);
+            if (role is "menuitem" or "menu" or "menubar")
+            {
+                string name = ResolveName(current);
+                if (!string.IsNullOrWhiteSpace(name) &&
+                    name != "عنصر غير مسمى" &&
+                    !parts.Contains(name, StringComparer.Ordinal))
+                {
+                    parts.Insert(0, name);
+                }
+            }
+
+            current = TreeWalker.ControlViewWalker.GetParent(current);
+        }
+
+        return string.Join(" ثم ", parts);
+    }
+
+    private static (int position, int total)? TryGetMenuItemPosition(AutomationElement element)
+    {
+        string role = ResolveRole(element);
+        if (role != "menuitem")
+        {
+            return null;
+        }
+
+        AutomationElement? parent = TreeWalker.ControlViewWalker.GetParent(element);
+        if (parent is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            AutomationElementCollection siblings = parent.FindAll(
+                TreeScope.Children,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.MenuItem));
+
+            if (siblings.Count == 0)
+            {
+                return null;
+            }
+
+            for (int i = 0; i < siblings.Count; i++)
+            {
+                if (siblings[i].Equals(element))
+                {
+                    return (i + 1, siblings.Count);
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
     }
 
     private static int CountDescendants(AutomationElement root, ControlType controlType)
