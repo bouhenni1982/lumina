@@ -56,8 +56,8 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
   - `Insert+Left / Insert+Right` للكلمة السابقة أو اللاحقة
   - `Insert+PageUp / Insert+PageDown` للجملة السابقة أو اللاحقة
 - داخل وضع المراجعة النصية:
-  - `Left / Right` للحرف السابق أو اللاحق
-  - `Up / Down` للسطر السابق أو اللاحق
+  - `Left / Right` أو أسهم لوحة الأرقام مع `NumLock` مغلق للحرف السابق أو اللاحق
+  - `Up / Down` أو أسهم لوحة الأرقام مع `NumLock` مغلق للسطر السابق أو اللاحق
   - `Ctrl+Left / Ctrl+Right` للكلمة السابقة أو اللاحقة
   - `Ctrl+Up / Ctrl+Down` للفقرة السابقة أو اللاحقة
   - `Home / End` لبداية ونهاية السطر

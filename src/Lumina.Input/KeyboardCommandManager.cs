@@ -12,8 +12,6 @@ public sealed class KeyboardCommandManager : IDisposable
     private const int WmSysKeyDown = 0x0104;
     private const int WmSysKeyUp = 0x0105;
     private const int WmQuit = 0x0012;
-    private const uint LlkhfExtended = 0x01;
-
     private const uint VkInsert = 0x2D;
     private const uint VkShift = 0x10;
     private const uint VkControl = 0x11;
@@ -397,8 +395,6 @@ public sealed class KeyboardCommandManager : IDisposable
         bool isKeyUp = message is WmKeyUp or WmSysKeyUp;
         KbdLlHookStruct keyInfo = Marshal.PtrToStructure<KbdLlHookStruct>(lParam);
         uint vkCode = keyInfo.vkCode;
-        bool isExtendedNavigationKey = (keyInfo.flags & LlkhfExtended) != 0;
-
         if (vkCode == VkInsert)
         {
             if (isKeyDown)
@@ -424,7 +420,7 @@ public sealed class KeyboardCommandManager : IDisposable
         bool winDown = IsKeyCurrentlyDown(VkLWin) || IsKeyCurrentlyDown(VkRWin);
         bool altGrDown = IsKeyCurrentlyDown(VkRMenu);
 
-        if (ShouldLeaveAutoFocusedEdit(vkCode, controlDown, altDown, winDown, isExtendedNavigationKey))
+        if (ShouldLeaveAutoFocusedEdit(vkCode, controlDown, altDown, winDown))
         {
             _browserBrowseMode = true;
             _browserAutoFocusOnEdit = false;
@@ -471,7 +467,7 @@ public sealed class KeyboardCommandManager : IDisposable
         if (!_insertDown &&
             !winDown &&
             !_textReviewMode &&
-            IsBrowserTableNavigationContext(vkCode, isExtendedNavigationKey, controlDown, altDown, altGrDown))
+            IsBrowserTableNavigationContext(vkCode, controlDown, altDown, altGrDown))
         {
             if (TryHandleBrowserTableNavigation(vkCode))
             {
@@ -483,7 +479,7 @@ public sealed class KeyboardCommandManager : IDisposable
             !altDown &&
             !winDown &&
             !_textReviewMode &&
-            IsBrowserArrowReadingContext(vkCode, isExtendedNavigationKey))
+            IsBrowserArrowReadingContext(vkCode))
         {
             if (TryHandleBrowserArrowReading(vkCode, controlDown))
             {
@@ -743,13 +739,11 @@ public sealed class KeyboardCommandManager : IDisposable
 
     private bool IsBrowserTableNavigationContext(
         uint vkCode,
-        bool isExtendedNavigationKey,
         bool controlDown,
         bool altDown,
         bool altGrDown)
     {
         if (!_browserBrowseMode ||
-            !isExtendedNavigationKey ||
             !altDown ||
             !controlDown ||
             !altGrDown)
@@ -767,14 +761,14 @@ public sealed class KeyboardCommandManager : IDisposable
             BrowserNavigator.IsFocusedElementInsideTable();
     }
 
-    private bool IsBrowserArrowReadingContext(uint vkCode, bool isExtendedNavigationKey)
+    private bool IsBrowserArrowReadingContext(uint vkCode)
     {
-        if (!_browserBrowseMode || !isExtendedNavigationKey || !IsBrowserContext())
+        if (!_browserBrowseMode || !IsDirectionalReadingKey(vkCode) || !IsBrowserContext())
         {
             return false;
         }
 
-        return vkCode is VkUp or VkDown or VkLeft or VkRight;
+        return true;
     }
 
     private void EnterAutoFocusOnEditField()
@@ -789,15 +783,14 @@ public sealed class KeyboardCommandManager : IDisposable
         uint vkCode,
         bool controlDown,
         bool altDown,
-        bool winDown,
-        bool isExtendedNavigationKey)
+        bool winDown)
     {
         if (_browserBrowseMode ||
             !_browserAutoFocusOnEdit ||
             _browserEditDirty ||
             altDown ||
             winDown ||
-            !isExtendedNavigationKey ||
+            !IsDirectionalReadingKey(vkCode) ||
             !IsBrowserEditFocused())
         {
             return false;
@@ -861,6 +854,8 @@ public sealed class KeyboardCommandManager : IDisposable
         {
         }
     }
+
+    private static bool IsDirectionalReadingKey(uint vkCode) => vkCode is VkUp or VkDown or VkLeft or VkRight;
 
     private static bool IsKeyCurrentlyDown(uint virtualKey) => (GetAsyncKeyState((int)virtualKey) & 0x8000) != 0;
 
