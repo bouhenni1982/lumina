@@ -153,6 +153,8 @@ public static class BrowserNavigator
     public static string ReadCurrentTableContext() => DescribeCurrentTableContext();
     public static string MoveToNextTableCell() => MoveToAdjacentTableCell(moveNext: true);
     public static string MoveToPreviousTableCell() => MoveToAdjacentTableCell(moveNext: false);
+    public static string MoveToTableCellBelow() => MoveToVerticalTableCell(moveDown: true);
+    public static string MoveToTableCellAbove() => MoveToVerticalTableCell(moveDown: false);
 
     private static string MoveToNextSemanticRole(string semanticRole, string missingMessage)
     {
@@ -359,6 +361,35 @@ public static class BrowserNavigator
             : "لا توجد خلية سابقة في هذا الجدول.";
     }
 
+    private static string MoveToVerticalTableCell(bool moveDown)
+    {
+        AutomationElement? current = FocusSnapshotReader.GetFocusedElement();
+        if (current is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
+        if (!FocusSnapshotReader.IsBrowserContext(current))
+        {
+            return "العنصر الحالي ليس ضمن سياق ويب معروف.";
+        }
+
+        AutomationElement? table = FindAncestorBySemanticRole(current, "web_table");
+        if (table is null)
+        {
+            return "العنصر الحالي ليس داخل جدول معروف.";
+        }
+
+        if (TryMoveVerticallyUsingGridPattern(current, table, moveDown, out string? text))
+        {
+            return text!;
+        }
+
+        return moveDown
+            ? "لا توجد خلية أسفل الموضع الحالي."
+            : "لا توجد خلية أعلى الموضع الحالي.";
+    }
+
     internal static AutomationElement ResolveNavigationRootForBuffer(AutomationElement current) => ResolveNavigationRoot(current);
 
     internal static IEnumerable<AutomationElement> EnumerateBufferCandidates(AutomationElement root) =>
@@ -434,7 +465,15 @@ public static class BrowserNavigator
 
             GridItemPattern gridItem = (GridItemPattern)gridItemObject;
             string cellName = FocusSnapshotReader.ResolveName(current);
-            text = $"الخلية {cellName}. الصف {gridItem.Current.Row + 1}. العمود {gridItem.Current.Column + 1}";
+            List<string> segments =
+            [
+                $"الخلية {cellName}",
+                $"الصف {gridItem.Current.Row + 1}",
+                $"العمود {gridItem.Current.Column + 1}"
+            ];
+
+            AddHeaderSegments(current, segments);
+            text = string.Join(". ", segments);
             return true;
         }
         catch
@@ -466,6 +505,44 @@ public static class BrowserNavigator
             int column = gridItem.Current.Column + (moveNext ? 1 : -1);
 
             if (column < 0 || column >= grid.Current.ColumnCount)
+            {
+                return false;
+            }
+
+            AutomationElement target = grid.GetItem(row, column);
+            target.SetFocus();
+            text = BuildTableCellSummary(target);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryMoveVerticallyUsingGridPattern(
+        AutomationElement current,
+        AutomationElement table,
+        bool moveDown,
+        out string? text)
+    {
+        text = null;
+
+        try
+        {
+            if (!current.TryGetCurrentPattern(GridItemPattern.Pattern, out object? gridItemObject) ||
+                !table.TryGetCurrentPattern(GridPattern.Pattern, out object? gridObject))
+            {
+                return false;
+            }
+
+            GridItemPattern gridItem = (GridItemPattern)gridItemObject;
+            GridPattern grid = (GridPattern)gridObject;
+
+            int row = gridItem.Current.Row + (moveDown ? 1 : -1);
+            int column = gridItem.Current.Column;
+
+            if (row < 0 || row >= grid.Current.RowCount)
             {
                 return false;
             }
@@ -535,6 +612,46 @@ public static class BrowserNavigator
         }
 
         return FocusSnapshotReader.BuildWebSummary(element);
+    }
+
+    private static void AddHeaderSegments(AutomationElement element, List<string> segments)
+    {
+        try
+        {
+            if (!element.TryGetCurrentPattern(TableItemPattern.Pattern, out object? tableItemObject))
+            {
+                return;
+            }
+
+            TableItemPattern tableItem = (TableItemPattern)tableItemObject;
+
+            string[] rowHeaders = tableItem.Current.GetRowHeaderItems()
+                .Cast<AutomationElement>()
+                .Select(FocusSnapshotReader.ResolveName)
+                .Where(name => !string.IsNullOrWhiteSpace(name) && name != "عنصر غير مسمى")
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+            string[] columnHeaders = tableItem.Current.GetColumnHeaderItems()
+                .Cast<AutomationElement>()
+                .Select(FocusSnapshotReader.ResolveName)
+                .Where(name => !string.IsNullOrWhiteSpace(name) && name != "عنصر غير مسمى")
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+            if (rowHeaders.Length > 0)
+            {
+                segments.Add($"رأس الصف {string.Join("، ", rowHeaders)}");
+            }
+
+            if (columnHeaders.Length > 0)
+            {
+                segments.Add($"رأس العمود {string.Join("، ", columnHeaders)}");
+            }
+        }
+        catch
+        {
+        }
     }
 
     private static IEnumerable<AutomationElement> EnumerateAfterCurrent(IReadOnlyList<AutomationElement> elements, int currentIndex)

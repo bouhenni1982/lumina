@@ -114,6 +114,8 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _readCurrentTableContext;
     private readonly Action _moveToNextTableCell;
     private readonly Action _moveToPreviousTableCell;
+    private readonly Action _moveToTableCellBelow;
+    private readonly Action _moveToTableCellAbove;
     private readonly Action _summarizeCurrentPage;
     private readonly Action _refreshVirtualBuffer;
     private readonly Action _summarizeVirtualBuffer;
@@ -201,6 +203,8 @@ public sealed class KeyboardCommandManager : IDisposable
         Action readCurrentTableContext,
         Action moveToNextTableCell,
         Action moveToPreviousTableCell,
+        Action moveToTableCellBelow,
+        Action moveToTableCellAbove,
         Action summarizeCurrentPage,
         Action refreshVirtualBuffer,
         Action summarizeVirtualBuffer,
@@ -275,6 +279,8 @@ public sealed class KeyboardCommandManager : IDisposable
         _readCurrentTableContext = readCurrentTableContext;
         _moveToNextTableCell = moveToNextTableCell;
         _moveToPreviousTableCell = moveToPreviousTableCell;
+        _moveToTableCellBelow = moveToTableCellBelow;
+        _moveToTableCellAbove = moveToTableCellAbove;
         _summarizeCurrentPage = summarizeCurrentPage;
         _refreshVirtualBuffer = refreshVirtualBuffer;
         _summarizeVirtualBuffer = summarizeVirtualBuffer;
@@ -602,6 +608,8 @@ public sealed class KeyboardCommandManager : IDisposable
             VkF => _moveToNextFormField,
             VkLeft when controlDown => _moveToPreviousTableCell,
             VkRight when controlDown => _moveToNextTableCell,
+            VkUp when controlDown => _moveToTableCellAbove,
+            VkDown when controlDown => _moveToTableCellBelow,
             _ => null
         };
 
