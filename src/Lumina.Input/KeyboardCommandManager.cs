@@ -65,6 +65,7 @@ public sealed class KeyboardCommandManager : IDisposable
 
     private readonly Action _speakCurrentFocus;
     private readonly Action _repeatLastSpeech;
+    private readonly Action _speakLatestErrorSummary;
     private readonly Action _speakCurrentElementDetails;
     private readonly Action _speakCurrentElementAdvancedDetails;
     private readonly Action _toggleInspector;
@@ -158,6 +159,7 @@ public sealed class KeyboardCommandManager : IDisposable
     public KeyboardCommandManager(
         Action speakCurrentFocus,
         Action repeatLastSpeech,
+        Action speakLatestErrorSummary,
         Action speakCurrentElementDetails,
         Action speakCurrentElementAdvancedDetails,
         Action toggleInspector,
@@ -236,6 +238,7 @@ public sealed class KeyboardCommandManager : IDisposable
     {
         _speakCurrentFocus = speakCurrentFocus;
         _repeatLastSpeech = repeatLastSpeech;
+        _speakLatestErrorSummary = speakLatestErrorSummary;
         _speakCurrentElementDetails = speakCurrentElementDetails;
         _speakCurrentElementAdvancedDetails = speakCurrentElementAdvancedDetails;
         _toggleInspector = toggleInspector;
@@ -538,6 +541,7 @@ public sealed class KeyboardCommandManager : IDisposable
         {
             (VkF, _) => _speakCurrentFocus,
             (VkL, _) => _repeatLastSpeech,
+            (VkH, _) => _speakLatestErrorSummary,
             (VkI, _) => _toggleInspector,
             (VkT, true) => _readCurrentTableContext,
             (VkT, false) => _speakPageTitle,

@@ -36,6 +36,7 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
   - `Insert+Tab` لقراءة معلومات موسعة عن العنصر الحالي
   - تكرار `Insert+Tab` بسرعة لقراءة تفاصيل تشخيصية أعمق عن العنصر الحالي
   - `Insert+L` لإعادة آخر نطق
+  - `Insert+H` لقراءة آخر خطأ مسجل
   - `Insert+I` لإظهار أو إخفاء Inspector
   - `Insert+T` لقراءة عنوان الصفحة أو النافذة الحالية في المتصفح
   - `Shift+Insert+T` لقراءة سياق الجدول الحالي داخل المتصفح

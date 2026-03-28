@@ -42,6 +42,45 @@ public static class ErrorLogger
         return $"تم تغيير مستوى السجل إلى {DescribeVerbosity(_verbosity)}.";
     }
 
+    public static string GetLatestErrorSummary()
+    {
+        EnsureLogDirectory();
+        if (!File.Exists(ErrorLogPath))
+        {
+            return "لا يوجد ملف أخطاء بعد.";
+        }
+
+        string? lastLine = File.ReadLines(ErrorLogPath)
+            .LastOrDefault(line => !string.IsNullOrWhiteSpace(line));
+        if (string.IsNullOrWhiteSpace(lastLine))
+        {
+            return "لا يوجد خطأ مسجل حتى الآن.";
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(lastLine);
+            JsonElement root = document.RootElement;
+
+            string source = root.TryGetProperty("source", out JsonElement sourceElement)
+                ? sourceElement.GetString() ?? "غير معروف"
+                : "غير معروف";
+            string message = root.TryGetProperty("message", out JsonElement messageElement)
+                ? messageElement.GetString() ?? "بدون رسالة"
+                : "بدون رسالة";
+            string timestamp = root.TryGetProperty("timestampUtc", out JsonElement timestampElement)
+                ? timestampElement.GetString() ?? "وقت غير معروف"
+                : "وقت غير معروف";
+
+            return $"آخر خطأ من {source}. {message}. التوقيت {timestamp}.";
+        }
+        catch (Exception exception)
+        {
+            LogError(nameof(ErrorLogger), "تعذر تحليل آخر خطأ مسجل.", exception);
+            return "تعذر قراءة آخر خطأ من ملف السجل.";
+        }
+    }
+
     public static void LogInfo(string source, string message) => WriteTextLog("INFO", source, message);
 
     public static void LogWarning(string source, string message) => WriteTextLog("WARN", source, message);

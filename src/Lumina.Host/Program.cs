@@ -39,6 +39,7 @@ try
     Console.WriteLine("Insert+Tab لقراءة معلومات موسعة عن العنصر الحالي.");
     Console.WriteLine("كرر Insert+Tab بسرعة لقراءة تفاصيل تشخيصية أعمق عن العنصر الحالي.");
     Console.WriteLine("Insert+L لإعادة آخر رسالة منطوقة.");
+    Console.WriteLine("Insert+H لقراءة آخر خطأ مسجل.");
     Console.WriteLine("Insert+I لتبديل Inspector.");
     Console.WriteLine("Insert+T لقراءة عنوان الصفحة الحالية في المتصفح، وShift+Insert+T لقراءة سياق الجدول الحالي.");
     Console.WriteLine("Insert+Home لقراءة ملخص النافذة الحالية.");
@@ -91,6 +92,11 @@ try
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         repeatLastSpeech: speechService.RepeatLast,
+        speakLatestErrorSummary: () =>
+        {
+            string text = ErrorLogger.GetLatestErrorSummary();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
         speakCurrentElementDetails: () =>
         {
             string text = FocusSnapshotReader.ReadCurrentElementDetails();
