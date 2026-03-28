@@ -26,6 +26,7 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
 - تقرأ اسم العنصر ودوره وقيمته إن وجدت
 - تمرر الحدث إلى طبقة السكربت
 - تنطق الناتج
+- تسجل Inspector في `inspector/focus-events.jsonl`
 
 ## ما الذي لم يكتمل بعد
 

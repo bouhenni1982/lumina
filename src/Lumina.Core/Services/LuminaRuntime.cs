@@ -7,16 +7,19 @@ public sealed class LuminaRuntime : IDisposable
     private readonly IAccessibilityService _accessibilityService;
     private readonly IScriptEngine _scriptEngine;
     private readonly ISpeechService _speechService;
+    private readonly IInspectorSink? _inspectorSink;
     private readonly EventFilter _eventFilter = new();
 
     public LuminaRuntime(
         IAccessibilityService accessibilityService,
         IScriptEngine scriptEngine,
-        ISpeechService speechService)
+        ISpeechService speechService,
+        IInspectorSink? inspectorSink = null)
     {
         _accessibilityService = accessibilityService;
         _scriptEngine = scriptEngine;
         _speechService = speechService;
+        _inspectorSink = inspectorSink;
     }
 
     public void Start()
@@ -33,6 +36,7 @@ public sealed class LuminaRuntime : IDisposable
         }
 
         Models.SpeechRequest speech = _scriptEngine.Handle(screenEvent);
+        _inspectorSink?.Record(screenEvent, speech);
         if (!string.IsNullOrWhiteSpace(speech.Text))
         {
             _speechService.Enqueue(speech);
@@ -47,6 +51,7 @@ public sealed class LuminaRuntime : IDisposable
         {
             disposableScriptEngine.Dispose();
         }
+        _inspectorSink?.Dispose();
         _speechService.Dispose();
     }
 }

@@ -6,6 +6,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Lumina.Core\Lumina.Core.csproj" />
     <ProjectReference Include="..\Lumina.Accessibility\Lumina.Accessibility.csproj" />
+    <ProjectReference Include="..\Lumina.Output\Lumina.Output.csproj" />
     <ProjectReference Include="..\Lumina.Speech\Lumina.Speech.csproj" />
     <ProjectReference Include="..\Lumina.Scripting\Lumina.Scripting.csproj" />
   </ItemGroup>
