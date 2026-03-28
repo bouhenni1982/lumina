@@ -377,6 +377,14 @@ public static class FocusSnapshotReader
 
     public static string MoveToPreviousSettingsSlider() => MoveToSettingsControlType(ControlType.Slider, "منزلق", "منزلقات", moveNext: false);
 
+    public static string MoveToNextSettingsText() => MoveToSettingsControlType(ControlType.Text, "نص", "نصوص", moveNext: true);
+
+    public static string MoveToPreviousSettingsText() => MoveToSettingsControlType(ControlType.Text, "نص", "نصوص", moveNext: false);
+
+    public static string MoveToNextSettingsGroup() => MoveToSettingsControlType(ControlType.Group, "مجموعة", "مجموعات", moveNext: true);
+
+    public static string MoveToPreviousSettingsGroup() => MoveToSettingsControlType(ControlType.Group, "مجموعة", "مجموعات", moveNext: false);
+
     internal static string BuildWebSummary(AutomationElement element)
     {
         string semanticRole = ResolveWebSemanticRole(element);

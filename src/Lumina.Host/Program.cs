@@ -32,6 +32,8 @@ try
     Console.WriteLine("Insert+U أو Shift+Insert+U للتنقل بين أزرار الاختيار داخل الإعدادات.");
     Console.WriteLine("Insert+D أو Shift+Insert+D للتنقل بين علامات التبويب داخل الإعدادات.");
     Console.WriteLine("Insert+Z أو Shift+Insert+Z للتنقل بين المنزلقات داخل الإعدادات.");
+    Console.WriteLine("Insert+X أو Shift+Insert+X للتنقل بين النصوص داخل الإعدادات.");
+    Console.WriteLine("Insert+J أو Shift+Insert+J للتنقل بين المجموعات داخل الإعدادات.");
     Console.WriteLine("Insert+S لقراءة ملخص الصفحة الحالية.");
     Console.WriteLine("Insert+R لتحديث المخزن الظاهري للصفحة.");
     Console.WriteLine("Insert+B لملخص حالة المخزن الظاهري.");
@@ -171,6 +173,26 @@ try
         moveToPreviousSettingsSlider: () =>
         {
             string text = FocusSnapshotReader.MoveToPreviousSettingsSlider();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextSettingsText: () =>
+        {
+            string text = FocusSnapshotReader.MoveToNextSettingsText();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousSettingsText: () =>
+        {
+            string text = FocusSnapshotReader.MoveToPreviousSettingsText();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextSettingsGroup: () =>
+        {
+            string text = FocusSnapshotReader.MoveToNextSettingsGroup();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousSettingsGroup: () =>
+        {
+            string text = FocusSnapshotReader.MoveToPreviousSettingsGroup();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         moveToNextHeading: () =>

@@ -24,6 +24,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkG = 0x47;
     private const uint VkC = 0x43;
     private const uint VkA = 0x41;
+    private const uint VkJ = 0x4A;
     private const uint VkL = 0x4C;
     private const uint VkI = 0x49;
     private const uint VkM = 0x4D;
@@ -32,6 +33,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkP = 0x50;
     private const uint VkU = 0x55;
     private const uint VkD = 0x44;
+    private const uint VkX = 0x58;
     private const uint VkZ = 0x5A;
     private const uint VkReturn = 0x0D;
     private const uint VkTab = 0x09;
@@ -79,6 +81,10 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _moveToPreviousSettingsTab;
     private readonly Action _moveToNextSettingsSlider;
     private readonly Action _moveToPreviousSettingsSlider;
+    private readonly Action _moveToNextSettingsText;
+    private readonly Action _moveToPreviousSettingsText;
+    private readonly Action _moveToNextSettingsGroup;
+    private readonly Action _moveToPreviousSettingsGroup;
     private readonly Action _moveToNextHeading;
     private readonly Action _moveToPreviousHeading;
     private readonly Action _moveToNextLink;
@@ -142,6 +148,10 @@ public sealed class KeyboardCommandManager : IDisposable
         Action moveToPreviousSettingsTab,
         Action moveToNextSettingsSlider,
         Action moveToPreviousSettingsSlider,
+        Action moveToNextSettingsText,
+        Action moveToPreviousSettingsText,
+        Action moveToNextSettingsGroup,
+        Action moveToPreviousSettingsGroup,
         Action moveToNextHeading,
         Action moveToPreviousHeading,
         Action moveToNextLink,
@@ -193,6 +203,10 @@ public sealed class KeyboardCommandManager : IDisposable
         _moveToPreviousSettingsTab = moveToPreviousSettingsTab;
         _moveToNextSettingsSlider = moveToNextSettingsSlider;
         _moveToPreviousSettingsSlider = moveToPreviousSettingsSlider;
+        _moveToNextSettingsText = moveToNextSettingsText;
+        _moveToPreviousSettingsText = moveToPreviousSettingsText;
+        _moveToNextSettingsGroup = moveToNextSettingsGroup;
+        _moveToPreviousSettingsGroup = moveToPreviousSettingsGroup;
         _moveToNextHeading = moveToNextHeading;
         _moveToPreviousHeading = moveToPreviousHeading;
         _moveToNextLink = moveToNextLink;
@@ -400,6 +414,10 @@ public sealed class KeyboardCommandManager : IDisposable
             VkD => _moveToNextSettingsTab,
             VkZ when shiftDown => _moveToPreviousSettingsSlider,
             VkZ => _moveToNextSettingsSlider,
+            VkX when shiftDown => _moveToPreviousSettingsText,
+            VkX => _moveToNextSettingsText,
+            VkJ when shiftDown => _moveToPreviousSettingsGroup,
+            VkJ => _moveToNextSettingsGroup,
             VkS => _summarizeCurrentPage,
             VkR => _refreshVirtualBuffer,
             VkB => _summarizeVirtualBuffer,
