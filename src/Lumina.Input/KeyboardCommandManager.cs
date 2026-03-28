@@ -31,6 +31,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkN = 0x4E;
     private const uint VkO = 0x4F;
     private const uint VkP = 0x50;
+    private const uint VkQ = 0x51;
     private const uint VkU = 0x55;
     private const uint VkD = 0x44;
     private const uint VkX = 0x58;
@@ -85,6 +86,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _moveToPreviousSettingsText;
     private readonly Action _moveToNextSettingsGroup;
     private readonly Action _moveToPreviousSettingsGroup;
+    private readonly Action _readEditorStatusSummary;
     private readonly Action _moveToNextHeading;
     private readonly Action _moveToPreviousHeading;
     private readonly Action _moveToNextLink;
@@ -152,6 +154,7 @@ public sealed class KeyboardCommandManager : IDisposable
         Action moveToPreviousSettingsText,
         Action moveToNextSettingsGroup,
         Action moveToPreviousSettingsGroup,
+        Action readEditorStatusSummary,
         Action moveToNextHeading,
         Action moveToPreviousHeading,
         Action moveToNextLink,
@@ -207,6 +210,7 @@ public sealed class KeyboardCommandManager : IDisposable
         _moveToPreviousSettingsText = moveToPreviousSettingsText;
         _moveToNextSettingsGroup = moveToNextSettingsGroup;
         _moveToPreviousSettingsGroup = moveToPreviousSettingsGroup;
+        _readEditorStatusSummary = readEditorStatusSummary;
         _moveToNextHeading = moveToNextHeading;
         _moveToPreviousHeading = moveToPreviousHeading;
         _moveToNextLink = moveToNextLink;
@@ -402,6 +406,7 @@ public sealed class KeyboardCommandManager : IDisposable
             VkG => _speakSettingsContext,
             VkN => _moveToNextContextItem,
             VkP => _moveToPreviousContextItem,
+            VkQ => _readEditorStatusSummary,
             VkC when shiftDown => _moveToPreviousSettingsCheckbox,
             VkC => _moveToNextSettingsCheckbox,
             VkA when shiftDown => _moveToPreviousSettingsButton,

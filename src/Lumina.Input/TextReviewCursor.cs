@@ -62,6 +62,45 @@ public static class TextReviewCursor
         }
     }
 
+    public static string ReadEditorStatusSummary()
+    {
+        if (!TryGetTextPattern(out AutomationElement? element, out TextPattern? pattern))
+        {
+            return "العنصر الحالي لا يدعم قراءة حالة المحرر.";
+        }
+
+        lock (Sync)
+        {
+            EnsureRanges(pattern, element);
+
+            TextPatternRange anchor = _characterRange?.Clone() ?? GetAnchorRange(pattern);
+            TextPatternRange lineRange = _lineRange?.Clone() ?? anchor.Clone();
+            lineRange.ExpandToEnclosingUnit(TextUnit.Line);
+
+            string currentLine = Normalize(lineRange.GetText(-1));
+            (int lineNumber, int columnNumber) = ResolveLineAndColumn(pattern, anchor, lineRange);
+            string selectionSummary = ResolveSelectionSummary(pattern);
+
+            List<string> segments =
+            [
+                $"السطر {lineNumber}",
+                $"العمود {columnNumber}"
+            ];
+
+            if (!string.IsNullOrWhiteSpace(selectionSummary))
+            {
+                segments.Add(selectionSummary);
+            }
+
+            if (!string.IsNullOrWhiteSpace(currentLine))
+            {
+                segments.Add($"النص الحالي {currentLine}");
+            }
+
+            return string.Join(". ", segments);
+        }
+    }
+
     private static string ReadCurrent(TextUnit unit, string label, string unsupportedMessage)
     {
         if (!TryGetTextPattern(out AutomationElement? element, out TextPattern? pattern))
@@ -334,6 +373,86 @@ public static class TextReviewCursor
         start.MoveEndpointByRange(TextPatternRangeEndpoint.End, start, TextPatternRangeEndpoint.Start);
         return lineRange.CompareEndpoints(TextPatternRangeEndpoint.Start, start, TextPatternRangeEndpoint.Start) > 0 ||
                lineRange.CompareEndpoints(TextPatternRangeEndpoint.End, start, TextPatternRangeEndpoint.Start) <= 0;
+    }
+
+    private static (int lineNumber, int columnNumber) ResolveLineAndColumn(
+        TextPattern pattern,
+        TextPatternRange anchor,
+        TextPatternRange lineRange)
+    {
+        int lineNumber = 1;
+
+        try
+        {
+            TextPatternRange walker = pattern.DocumentRange.Clone();
+            walker.ExpandToEnclosingUnit(TextUnit.Line);
+
+            while (true)
+            {
+                int compareStart = walker.CompareEndpoints(
+                    TextPatternRangeEndpoint.Start,
+                    lineRange,
+                    TextPatternRangeEndpoint.Start);
+
+                if (compareStart >= 0)
+                {
+                    break;
+                }
+
+                int moved = walker.Move(TextUnit.Line, 1);
+                if (moved == 0)
+                {
+                    break;
+                }
+
+                walker.ExpandToEnclosingUnit(TextUnit.Line);
+                lineNumber++;
+            }
+        }
+        catch
+        {
+            lineNumber = 1;
+        }
+
+        int columnNumber = 1;
+
+        try
+        {
+            TextPatternRange prefix = lineRange.Clone();
+            prefix.MoveEndpointByRange(TextPatternRangeEndpoint.End, anchor, TextPatternRangeEndpoint.Start);
+            string prefixText = prefix.GetText(-1) ?? string.Empty;
+            columnNumber = Math.Max(prefixText.Length + 1, 1);
+        }
+        catch
+        {
+            columnNumber = 1;
+        }
+
+        return (lineNumber, columnNumber);
+    }
+
+    private static string ResolveSelectionSummary(TextPattern pattern)
+    {
+        try
+        {
+            TextPatternRange[] selection = pattern.GetSelection();
+            if (selection.Length == 0)
+            {
+                return "لا يوجد تحديد";
+            }
+
+            string selectedText = Normalize(selection[0].GetText(-1));
+            if (string.IsNullOrWhiteSpace(selectedText))
+            {
+                return "لا يوجد تحديد";
+            }
+
+            return $"التحديد {selectedText.Length} حرف";
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     private static string GetRuntimeId(AutomationElement element)

@@ -26,6 +26,7 @@ try
     Console.WriteLine("Insert+G لقراءة سياق الإعدادات الحالي.");
     Console.WriteLine("Insert+N للانتقال إلى العنصر التالي داخل القائمة أو القسم الحالي.");
     Console.WriteLine("Insert+P للانتقال إلى العنصر السابق داخل القائمة أو القسم الحالي.");
+    Console.WriteLine("Insert+Q لقراءة حالة المحرر: السطر والعمود والتحديد.");
     Console.WriteLine("Insert+C أو Shift+Insert+C للتنقل بين خانات الاختيار داخل الإعدادات.");
     Console.WriteLine("Insert+A أو Shift+Insert+A للتنقل بين الأزرار داخل الإعدادات.");
     Console.WriteLine("Insert+O أو Shift+Insert+O للتنقل بين مربعات الخيارات داخل الإعدادات.");
@@ -193,6 +194,11 @@ try
         moveToPreviousSettingsGroup: () =>
         {
             string text = FocusSnapshotReader.MoveToPreviousSettingsGroup();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        readEditorStatusSummary: () =>
+        {
+            string text = TextReviewCursor.ReadEditorStatusSummary();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         moveToNextHeading: () =>
