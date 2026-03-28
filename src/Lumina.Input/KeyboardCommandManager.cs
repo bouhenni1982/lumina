@@ -93,6 +93,14 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _moveToPreviousLink;
     private readonly Action _moveToNextEditField;
     private readonly Action _moveToPreviousEditField;
+    private readonly Action _moveToNextButton;
+    private readonly Action _moveToPreviousButton;
+    private readonly Action _moveToNextCheckbox;
+    private readonly Action _moveToPreviousCheckbox;
+    private readonly Action _moveToNextLandmark;
+    private readonly Action _moveToPreviousLandmark;
+    private readonly Action _moveToNextTable;
+    private readonly Action _moveToPreviousTable;
     private readonly Action _summarizeCurrentPage;
     private readonly Action _refreshVirtualBuffer;
     private readonly Action _summarizeVirtualBuffer;
@@ -161,6 +169,14 @@ public sealed class KeyboardCommandManager : IDisposable
         Action moveToPreviousLink,
         Action moveToNextEditField,
         Action moveToPreviousEditField,
+        Action moveToNextButton,
+        Action moveToPreviousButton,
+        Action moveToNextCheckbox,
+        Action moveToPreviousCheckbox,
+        Action moveToNextLandmark,
+        Action moveToPreviousLandmark,
+        Action moveToNextTable,
+        Action moveToPreviousTable,
         Action summarizeCurrentPage,
         Action refreshVirtualBuffer,
         Action summarizeVirtualBuffer,
@@ -217,6 +233,14 @@ public sealed class KeyboardCommandManager : IDisposable
         _moveToPreviousLink = moveToPreviousLink;
         _moveToNextEditField = moveToNextEditField;
         _moveToPreviousEditField = moveToPreviousEditField;
+        _moveToNextButton = moveToNextButton;
+        _moveToPreviousButton = moveToPreviousButton;
+        _moveToNextCheckbox = moveToNextCheckbox;
+        _moveToPreviousCheckbox = moveToPreviousCheckbox;
+        _moveToNextLandmark = moveToNextLandmark;
+        _moveToPreviousLandmark = moveToPreviousLandmark;
+        _moveToNextTable = moveToNextTable;
+        _moveToPreviousTable = moveToPreviousTable;
         _summarizeCurrentPage = summarizeCurrentPage;
         _refreshVirtualBuffer = refreshVirtualBuffer;
         _summarizeVirtualBuffer = summarizeVirtualBuffer;
@@ -489,6 +513,14 @@ public sealed class KeyboardCommandManager : IDisposable
             VkK => _moveToNextLink,
             VkE when shiftDown => _moveToPreviousEditField,
             VkE => _moveToNextEditField,
+            VkB when shiftDown => _moveToPreviousButton,
+            VkB => _moveToNextButton,
+            VkX when shiftDown => _moveToPreviousCheckbox,
+            VkX => _moveToNextCheckbox,
+            VkD when shiftDown => _moveToPreviousLandmark,
+            VkD => _moveToNextLandmark,
+            VkT when shiftDown => _moveToPreviousTable,
+            VkT => _moveToNextTable,
             _ => null
         };
 

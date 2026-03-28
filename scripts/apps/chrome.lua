@@ -22,6 +22,13 @@ function on_focus_changed(event)
         text = "حقل إدخال ويب " .. event.name
       }
     end
+
+    if event.semantic_role == "web_button" then
+      return {
+        action = "speak",
+        text = "زر في Chrome " .. event.name
+      }
+    end
   end
 
   if previous_handler ~= nil then

@@ -91,6 +91,16 @@ internal sealed class BrowserAccessibilityAdapter
             return "web_button";
         }
 
+        if (role.Contains("radio", StringComparison.OrdinalIgnoreCase) || localizedRole.Contains("radio"))
+        {
+            return "web_radio";
+        }
+
+        if (role.Contains("combo", StringComparison.OrdinalIgnoreCase) || localizedRole.Contains("combo box"))
+        {
+            return "web_combobox";
+        }
+
         if (localizedRole.Contains("tab"))
         {
             return "web_tab";
@@ -99,6 +109,37 @@ internal sealed class BrowserAccessibilityAdapter
         if (localizedRole.Contains("check box") || role.Contains("check", StringComparison.OrdinalIgnoreCase))
         {
             return "web_checkbox";
+        }
+
+        if (role is "table" || localizedRole.Contains("table") || localizedRole.Contains("grid"))
+        {
+            return "web_table";
+        }
+
+        if (role is "list" || localizedRole == "list")
+        {
+            return "web_list";
+        }
+
+        if (role is "listitem" || localizedRole.Contains("list item"))
+        {
+            return "web_listitem";
+        }
+
+        if (localizedRole.Contains("dialog") || localizedRole.Contains("alert"))
+        {
+            return "web_dialog";
+        }
+
+        if (localizedRole.Contains("navigation") ||
+            localizedRole.Contains("banner") ||
+            localizedRole.Contains("main") ||
+            localizedRole.Contains("search") ||
+            localizedRole.Contains("content info") ||
+            localizedRole.Contains("complementary") ||
+            itemType.Contains("landmark"))
+        {
+            return "web_landmark";
         }
 
         if (!string.IsNullOrWhiteSpace(value) && localizedRole.Contains("text"))
@@ -117,8 +158,15 @@ internal sealed class BrowserAccessibilityAdapter
             "web_document" => "document",
             "web_edit" => "edit",
             "web_button" => "button",
+            "web_radio" => "radiobutton",
+            "web_combobox" => "combobox",
             "web_tab" => "tab",
             "web_checkbox" => "checkbox",
+            "web_table" => "table",
+            "web_list" => "list",
+            "web_listitem" => "listitem",
+            "web_dialog" => "dialog",
+            "web_landmark" => "landmark",
             _ => role
         };
 

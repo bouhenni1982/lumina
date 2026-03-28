@@ -45,7 +45,7 @@ try
     Console.WriteLine("Insert+Left/Right للكلمة السابقة أو اللاحقة.");
     Console.WriteLine("Insert+PageUp/PageDown للجملة السابقة أو اللاحقة.");
     Console.WriteLine("داخل وضع المراجعة: الأسهم للحرف والسطر وCtrl+الأسهم للكلمة والفقرة وHome/End لبداية ونهاية السطر.");
-    Console.WriteLine("داخل المتصفح: H/K/E للعنصر التالي وShift+H/K/E للعنصر السابق.");
+    Console.WriteLine("داخل المتصفح: H/K/E/B/X/D/T للتنقل بين العناوين والروابط والحقول والأزرار وخانات الاختيار والمعالم والجداول.");
     Console.WriteLine("اضغط Ctrl+C للإيقاف.");
 
     var speechService = new SapiSpeechService();
@@ -229,6 +229,46 @@ try
         moveToPreviousEditField: () =>
         {
             string text = BrowserNavigator.MoveToPreviousEditField();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextButton: () =>
+        {
+            string text = BrowserNavigator.MoveToNextButton();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousButton: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousButton();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextCheckbox: () =>
+        {
+            string text = BrowserNavigator.MoveToNextCheckbox();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousCheckbox: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousCheckbox();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextLandmark: () =>
+        {
+            string text = BrowserNavigator.MoveToNextLandmark();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousLandmark: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousLandmark();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextTable: () =>
+        {
+            string text = BrowserNavigator.MoveToNextTable();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousTable: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousTable();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         summarizeCurrentPage: () =>

@@ -22,6 +22,13 @@ function on_focus_changed(event)
         text = "خانة اختيار " .. event.name
       }
     end
+
+    if event.semantic_role == "web_table" then
+      return {
+        action = "speak",
+        text = "جدول في Firefox " .. event.name
+      }
+    end
   end
 
   if previous_handler ~= nil then

@@ -29,6 +29,9 @@ public static class BrowserNavigator
         int editFields = 0;
         int buttons = 0;
         int checkboxes = 0;
+        int landmarks = 0;
+        int tables = 0;
+        int lists = 0;
 
         foreach (AutomationElement element in elements)
         {
@@ -48,6 +51,15 @@ public static class BrowserNavigator
                     break;
                 case "web_checkbox":
                     checkboxes++;
+                    break;
+                case "web_landmark":
+                    landmarks++;
+                    break;
+                case "web_table":
+                    tables++;
+                    break;
+                case "web_list":
+                    lists++;
                     break;
             }
         }
@@ -69,6 +81,21 @@ public static class BrowserNavigator
             parts.Add($"خانات الاختيار {checkboxes}");
         }
 
+        if (landmarks > 0)
+        {
+            parts.Add($"المعالم {landmarks}");
+        }
+
+        if (tables > 0)
+        {
+            parts.Add($"الجداول {tables}");
+        }
+
+        if (lists > 0)
+        {
+            parts.Add($"القوائم {lists}");
+        }
+
         return string.Join(". ", parts);
     }
 
@@ -80,6 +107,18 @@ public static class BrowserNavigator
 
     public static string MoveToNextEditField() => MoveToNextSemanticRole("web_edit", "لا يوجد حقل إدخال تال في الصفحة.");
     public static string MoveToPreviousEditField() => MoveToPreviousSemanticRole("web_edit", "لا يوجد حقل إدخال سابق في الصفحة.");
+
+    public static string MoveToNextButton() => MoveToNextSemanticRole("web_button", "لا يوجد زر تال في الصفحة.");
+    public static string MoveToPreviousButton() => MoveToPreviousSemanticRole("web_button", "لا يوجد زر سابق في الصفحة.");
+
+    public static string MoveToNextCheckbox() => MoveToNextSemanticRole("web_checkbox", "لا توجد خانة اختيار تالية في الصفحة.");
+    public static string MoveToPreviousCheckbox() => MoveToPreviousSemanticRole("web_checkbox", "لا توجد خانة اختيار سابقة في الصفحة.");
+
+    public static string MoveToNextLandmark() => MoveToNextSemanticRole("web_landmark", "لا يوجد معلم تال في الصفحة.");
+    public static string MoveToPreviousLandmark() => MoveToPreviousSemanticRole("web_landmark", "لا يوجد معلم سابق في الصفحة.");
+
+    public static string MoveToNextTable() => MoveToNextSemanticRole("web_table", "لا يوجد جدول تال في الصفحة.");
+    public static string MoveToPreviousTable() => MoveToPreviousSemanticRole("web_table", "لا يوجد جدول سابق في الصفحة.");
 
     private static string MoveToNextSemanticRole(string semanticRole, string missingMessage)
     {

@@ -33,6 +33,23 @@ function on_focus_changed(event)
       include_value = true
     elseif event.semantic_role == "web_button" then
       text = "زر ويب " .. name
+    elseif event.semantic_role == "web_checkbox" then
+      text = "خانة اختيار ويب " .. name
+    elseif event.semantic_role == "web_radio" then
+      text = "زر اختيار ويب " .. name
+    elseif event.semantic_role == "web_combobox" then
+      text = "مربع خيارات ويب " .. name
+      include_value = true
+    elseif event.semantic_role == "web_table" then
+      text = "جدول " .. name
+    elseif event.semantic_role == "web_list" then
+      text = "قائمة ويب " .. name
+    elseif event.semantic_role == "web_listitem" then
+      text = "عنصر قائمة ويب " .. name
+    elseif event.semantic_role == "web_dialog" then
+      text = "حوار ويب " .. name
+    elseif event.semantic_role == "web_landmark" then
+      text = "معلم صفحة " .. name
     end
   end
 

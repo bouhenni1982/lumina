@@ -400,6 +400,13 @@ public static class FocusSnapshotReader
             "web_document" => $"مستند ويب {name}",
             "web_button" => $"زر ويب {name}",
             "web_checkbox" => $"خانة اختيار {name}",
+            "web_radio" => $"زر اختيار ويب {name}",
+            "web_combobox" => $"مربع خيارات ويب {name}",
+            "web_table" => $"جدول {name}",
+            "web_list" => $"قائمة ويب {name}",
+            "web_listitem" => $"عنصر قائمة ويب {name}",
+            "web_dialog" => $"حوار ويب {name}",
+            "web_landmark" => $"معلم صفحة {name}",
             _ => $"عنصر ويب {name}"
         };
 
@@ -766,9 +773,50 @@ public static class FocusSnapshotReader
             return "web_button";
         }
 
+        if (role.Contains("radio", StringComparison.OrdinalIgnoreCase) || localizedRole.Contains("radio"))
+        {
+            return "web_radio";
+        }
+
+        if (role.Contains("combo", StringComparison.OrdinalIgnoreCase) || localizedRole.Contains("combo box"))
+        {
+            return "web_combobox";
+        }
+
         if (localizedRole.Contains("check box") || role.Contains("check", StringComparison.OrdinalIgnoreCase))
         {
             return "web_checkbox";
+        }
+
+        if (role == "table" || localizedRole.Contains("table") || localizedRole.Contains("grid"))
+        {
+            return "web_table";
+        }
+
+        if (role == "list" || localizedRole == "list")
+        {
+            return "web_list";
+        }
+
+        if (role == "listitem" || localizedRole.Contains("list item"))
+        {
+            return "web_listitem";
+        }
+
+        if (localizedRole.Contains("dialog") || localizedRole.Contains("alert"))
+        {
+            return "web_dialog";
+        }
+
+        if (localizedRole.Contains("navigation") ||
+            localizedRole.Contains("banner") ||
+            localizedRole.Contains("main") ||
+            localizedRole.Contains("search") ||
+            localizedRole.Contains("content info") ||
+            localizedRole.Contains("complementary") ||
+            itemType.Contains("landmark"))
+        {
+            return "web_landmark";
         }
 
         return "web_control";

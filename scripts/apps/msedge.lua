@@ -22,6 +22,13 @@ function on_focus_changed(event)
         text = "مستند ويب " .. event.name
       }
     end
+
+    if event.semantic_role == "web_landmark" then
+      return {
+        action = "speak",
+        text = "معلم صفحة في Edge " .. event.name
+      }
+    end
   end
 
   if previous_handler ~= nil then
