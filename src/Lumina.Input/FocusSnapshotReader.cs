@@ -365,6 +365,18 @@ public static class FocusSnapshotReader
 
     public static string MoveToPreviousSettingsComboBox() => MoveToSettingsControlType(ControlType.ComboBox, "مربع خيارات", "مربعات خيارات", moveNext: false);
 
+    public static string MoveToNextSettingsRadioButton() => MoveToSettingsControlType(ControlType.RadioButton, "زر اختيار", "أزرار اختيار", moveNext: true);
+
+    public static string MoveToPreviousSettingsRadioButton() => MoveToSettingsControlType(ControlType.RadioButton, "زر اختيار", "أزرار اختيار", moveNext: false);
+
+    public static string MoveToNextSettingsTab() => MoveToSettingsControlType(ControlType.TabItem, "علامة تبويب", "علامات تبويب", moveNext: true);
+
+    public static string MoveToPreviousSettingsTab() => MoveToSettingsControlType(ControlType.TabItem, "علامة تبويب", "علامات تبويب", moveNext: false);
+
+    public static string MoveToNextSettingsSlider() => MoveToSettingsControlType(ControlType.Slider, "منزلق", "منزلقات", moveNext: true);
+
+    public static string MoveToPreviousSettingsSlider() => MoveToSettingsControlType(ControlType.Slider, "منزلق", "منزلقات", moveNext: false);
+
     internal static string BuildWebSummary(AutomationElement element)
     {
         string semanticRole = ResolveWebSemanticRole(element);

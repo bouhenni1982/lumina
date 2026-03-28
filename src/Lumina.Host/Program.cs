@@ -29,6 +29,9 @@ try
     Console.WriteLine("Insert+C أو Shift+Insert+C للتنقل بين خانات الاختيار داخل الإعدادات.");
     Console.WriteLine("Insert+A أو Shift+Insert+A للتنقل بين الأزرار داخل الإعدادات.");
     Console.WriteLine("Insert+O أو Shift+Insert+O للتنقل بين مربعات الخيارات داخل الإعدادات.");
+    Console.WriteLine("Insert+U أو Shift+Insert+U للتنقل بين أزرار الاختيار داخل الإعدادات.");
+    Console.WriteLine("Insert+D أو Shift+Insert+D للتنقل بين علامات التبويب داخل الإعدادات.");
+    Console.WriteLine("Insert+Z أو Shift+Insert+Z للتنقل بين المنزلقات داخل الإعدادات.");
     Console.WriteLine("Insert+S لقراءة ملخص الصفحة الحالية.");
     Console.WriteLine("Insert+R لتحديث المخزن الظاهري للصفحة.");
     Console.WriteLine("Insert+B لملخص حالة المخزن الظاهري.");
@@ -138,6 +141,36 @@ try
         moveToPreviousSettingsComboBox: () =>
         {
             string text = FocusSnapshotReader.MoveToPreviousSettingsComboBox();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextSettingsRadioButton: () =>
+        {
+            string text = FocusSnapshotReader.MoveToNextSettingsRadioButton();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousSettingsRadioButton: () =>
+        {
+            string text = FocusSnapshotReader.MoveToPreviousSettingsRadioButton();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextSettingsTab: () =>
+        {
+            string text = FocusSnapshotReader.MoveToNextSettingsTab();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousSettingsTab: () =>
+        {
+            string text = FocusSnapshotReader.MoveToPreviousSettingsTab();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextSettingsSlider: () =>
+        {
+            string text = FocusSnapshotReader.MoveToNextSettingsSlider();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousSettingsSlider: () =>
+        {
+            string text = FocusSnapshotReader.MoveToPreviousSettingsSlider();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         moveToNextHeading: () =>

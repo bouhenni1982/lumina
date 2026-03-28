@@ -30,6 +30,9 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkN = 0x4E;
     private const uint VkO = 0x4F;
     private const uint VkP = 0x50;
+    private const uint VkU = 0x55;
+    private const uint VkD = 0x44;
+    private const uint VkZ = 0x5A;
     private const uint VkReturn = 0x0D;
     private const uint VkTab = 0x09;
     private const uint VkT = 0x54;
@@ -70,6 +73,12 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _moveToPreviousSettingsButton;
     private readonly Action _moveToNextSettingsComboBox;
     private readonly Action _moveToPreviousSettingsComboBox;
+    private readonly Action _moveToNextSettingsRadioButton;
+    private readonly Action _moveToPreviousSettingsRadioButton;
+    private readonly Action _moveToNextSettingsTab;
+    private readonly Action _moveToPreviousSettingsTab;
+    private readonly Action _moveToNextSettingsSlider;
+    private readonly Action _moveToPreviousSettingsSlider;
     private readonly Action _moveToNextHeading;
     private readonly Action _moveToPreviousHeading;
     private readonly Action _moveToNextLink;
@@ -127,6 +136,12 @@ public sealed class KeyboardCommandManager : IDisposable
         Action moveToPreviousSettingsButton,
         Action moveToNextSettingsComboBox,
         Action moveToPreviousSettingsComboBox,
+        Action moveToNextSettingsRadioButton,
+        Action moveToPreviousSettingsRadioButton,
+        Action moveToNextSettingsTab,
+        Action moveToPreviousSettingsTab,
+        Action moveToNextSettingsSlider,
+        Action moveToPreviousSettingsSlider,
         Action moveToNextHeading,
         Action moveToPreviousHeading,
         Action moveToNextLink,
@@ -172,6 +187,12 @@ public sealed class KeyboardCommandManager : IDisposable
         _moveToPreviousSettingsButton = moveToPreviousSettingsButton;
         _moveToNextSettingsComboBox = moveToNextSettingsComboBox;
         _moveToPreviousSettingsComboBox = moveToPreviousSettingsComboBox;
+        _moveToNextSettingsRadioButton = moveToNextSettingsRadioButton;
+        _moveToPreviousSettingsRadioButton = moveToPreviousSettingsRadioButton;
+        _moveToNextSettingsTab = moveToNextSettingsTab;
+        _moveToPreviousSettingsTab = moveToPreviousSettingsTab;
+        _moveToNextSettingsSlider = moveToNextSettingsSlider;
+        _moveToPreviousSettingsSlider = moveToPreviousSettingsSlider;
         _moveToNextHeading = moveToNextHeading;
         _moveToPreviousHeading = moveToPreviousHeading;
         _moveToNextLink = moveToNextLink;
@@ -373,6 +394,12 @@ public sealed class KeyboardCommandManager : IDisposable
             VkA => _moveToNextSettingsButton,
             VkO when shiftDown => _moveToPreviousSettingsComboBox,
             VkO => _moveToNextSettingsComboBox,
+            VkU when shiftDown => _moveToPreviousSettingsRadioButton,
+            VkU => _moveToNextSettingsRadioButton,
+            VkD when shiftDown => _moveToPreviousSettingsTab,
+            VkD => _moveToNextSettingsTab,
+            VkZ when shiftDown => _moveToPreviousSettingsSlider,
+            VkZ => _moveToNextSettingsSlider,
             VkS => _summarizeCurrentPage,
             VkR => _refreshVirtualBuffer,
             VkB => _summarizeVirtualBuffer,
