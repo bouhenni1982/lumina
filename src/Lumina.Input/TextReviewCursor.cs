@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Windows.Automation;
 using System.Windows.Automation.Text;
 
@@ -6,9 +7,12 @@ namespace Lumina.Input;
 public static class TextReviewCursor
 {
     private static readonly object Sync = new();
+    private static readonly Regex SentenceRegex = new(@"[^.!?؟]+[.!?؟]*", RegexOptions.Compiled);
     private static string? _elementRuntimeId;
     private static TextPatternRange? _lineRange;
     private static TextPatternRange? _characterRange;
+    private static string? _sentenceContextKey;
+    private static int _sentenceIndex = -1;
 
     public static string ReadCurrentLine() => ReadCurrent(TextUnit.Line, "السطر", "العنصر الحالي لا يدعم مراجعة النص.");
 
@@ -28,9 +32,9 @@ public static class TextReviewCursor
 
     public static string ReadNextParagraph() => ReadUnit(1, TextUnit.Paragraph, "لا توجد فقرة لاحقة.", "العنصر الحالي لا يدعم مراجعة الفقرات.", "الفقرة");
 
-    public static string ReadPreviousSentence() => ReadUnit(-1, TextUnit.Sentence, "لا توجد جملة سابقة.", "العنصر الحالي لا يدعم مراجعة الجمل.", "الجملة");
+    public static string ReadPreviousSentence() => ReadSentence(-1, "لا توجد جملة سابقة.", "العنصر الحالي لا يدعم مراجعة الجمل.");
 
-    public static string ReadNextSentence() => ReadUnit(1, TextUnit.Sentence, "لا توجد جملة لاحقة.", "العنصر الحالي لا يدعم مراجعة الجمل.", "الجملة");
+    public static string ReadNextSentence() => ReadSentence(1, "لا توجد جملة لاحقة.", "العنصر الحالي لا يدعم مراجعة الجمل.");
 
     public static string MoveToStartOfLine() => MoveToLineBoundary(toStart: true);
 
@@ -232,6 +236,49 @@ public static class TextReviewCursor
         }
     }
 
+    private static string ReadSentence(int delta, string boundaryMessage, string unsupportedMessage)
+    {
+        if (!TryGetTextPattern(out AutomationElement? element, out TextPattern? pattern))
+        {
+            return unsupportedMessage;
+        }
+
+        lock (Sync)
+        {
+            EnsureRanges(pattern, element);
+
+            TextPatternRange anchor = _characterRange?.Clone() ?? GetAnchorRange(pattern);
+            TextPatternRange paragraphRange = anchor.Clone();
+            paragraphRange.ExpandToEnclosingUnit(TextUnit.Paragraph);
+
+            string paragraphText = paragraphRange.GetText(-1) ?? string.Empty;
+            List<string> sentences = ResolveSentences(paragraphText);
+            if (sentences.Count == 0)
+            {
+                return unsupportedMessage;
+            }
+
+            string contextKey = $"{GetRuntimeId(element)}::{paragraphText}";
+            if (!string.Equals(_sentenceContextKey, contextKey, StringComparison.Ordinal))
+            {
+                _sentenceContextKey = contextKey;
+                _sentenceIndex = ResolveCurrentSentenceIndex(paragraphText, anchor, paragraphRange, sentences);
+            }
+            else
+            {
+                _sentenceIndex += delta;
+            }
+
+            if (_sentenceIndex < 0 || _sentenceIndex >= sentences.Count)
+            {
+                _sentenceIndex = Math.Clamp(_sentenceIndex, 0, sentences.Count - 1);
+                return boundaryMessage;
+            }
+
+            return $"الجملة {sentences[_sentenceIndex]}";
+        }
+    }
+
     private static bool TryGetTextPattern(out AutomationElement? element, out TextPattern? pattern)
     {
         element = FocusSnapshotReader.GetFocusedElement();
@@ -263,6 +310,8 @@ public static class TextReviewCursor
             _characterRange = anchor.Clone();
             _characterRange.ExpandToEnclosingUnit(TextUnit.Character);
             _elementRuntimeId = runtimeId;
+            _sentenceContextKey = null;
+            _sentenceIndex = -1;
         }
     }
 
@@ -310,4 +359,51 @@ public static class TextReviewCursor
             "\t" => "جدولة",
             _ => text
         };
+
+    private static List<string> ResolveSentences(string paragraphText)
+    {
+        List<string> sentences = [];
+        foreach (Match match in SentenceRegex.Matches(paragraphText))
+        {
+            string text = Normalize(match.Value);
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                sentences.Add(text);
+            }
+        }
+
+        return sentences;
+    }
+
+    private static int ResolveCurrentSentenceIndex(
+        string paragraphText,
+        TextPatternRange anchor,
+        TextPatternRange paragraphRange,
+        List<string> sentences)
+    {
+        TextPatternRange prefixRange = paragraphRange.Clone();
+        prefixRange.MoveEndpointByRange(TextPatternRangeEndpoint.End, anchor, TextPatternRangeEndpoint.Start);
+        string prefixText = prefixRange.GetText(-1) ?? string.Empty;
+        int currentOffset = prefixText.Length;
+
+        int runningOffset = 0;
+        for (int i = 0; i < sentences.Count; i++)
+        {
+            int start = paragraphText.IndexOf(sentences[i], runningOffset, StringComparison.Ordinal);
+            if (start < 0)
+            {
+                start = runningOffset;
+            }
+
+            int end = start + sentences[i].Length;
+            if (currentOffset <= end)
+            {
+                return i;
+            }
+
+            runningOffset = end;
+        }
+
+        return Math.Max(sentences.Count - 1, 0);
+    }
 }
