@@ -64,6 +64,11 @@ public sealed class UiaAccessibilityService : IAccessibilityService
             return;
         }
 
+        if (!HasUsefulLivePayload(element))
+        {
+            return;
+        }
+
         RaiseScreenEvent(element, "liveRegionChanged", userInitiated: false, priority: ResolveLivePriority(element));
     }
 
@@ -75,6 +80,11 @@ public sealed class UiaAccessibilityService : IAccessibilityService
         }
 
         if (!ShouldAnnounceLiveElement(element))
+        {
+            return;
+        }
+
+        if (!HasUsefulLivePayload(element))
         {
             return;
         }
@@ -238,6 +248,32 @@ public sealed class UiaAccessibilityService : IAccessibilityService
                itemType.Contains("status") ||
                name.Contains("alert") ||
                name.Contains("status");
+    }
+
+    private static bool HasUsefulLivePayload(AutomationElement element)
+    {
+        string name = (element.Current.Name ?? string.Empty).Trim();
+        string helpText = (element.Current.HelpText ?? string.Empty).Trim();
+        string itemStatus = (element.Current.ItemStatus ?? string.Empty).Trim();
+
+        if (name.Length > 1 || helpText.Length > 1 || itemStatus.Length > 1)
+        {
+            return true;
+        }
+
+        try
+        {
+            if (element.TryGetCurrentPattern(ValuePattern.Pattern, out object? valuePatternObject))
+            {
+                string? value = ((ValuePattern)valuePatternObject).Current.Value;
+                return !string.IsNullOrWhiteSpace(value) && value.Trim().Length > 1;
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
     }
 
     private static bool IsLikelyBrowserContext(AutomationElement element)
