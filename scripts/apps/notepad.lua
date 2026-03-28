@@ -32,10 +32,10 @@ function on_focus_changed(event)
         or string.find(lower_name, "find", 1, true) ~= nil
         or string.find(lower_name, "replace", 1, true) ~= nil then
         text = "حقل بحث " .. name
+        include_value = true
       else
         text = "محرر نص " .. name
       end
-      include_value = true
     elseif event.role == "menuitem" then
       text = "أمر " .. name
     elseif event.role == "button" then

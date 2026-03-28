@@ -40,10 +40,10 @@ function on_focus_changed(event)
     if event.role == "edit" then
       if looks_like_search(name) then
         text = "حقل بحث " .. name
+        include_value = true
       else
         text = "محرر نص " .. name
       end
-      include_value = true
     elseif event.role == "tabitem" then
       text = "تبويب ملف " .. name
     elseif event.role == "menuitem" then
