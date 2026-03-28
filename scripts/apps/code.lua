@@ -20,6 +20,19 @@ local function append_details(text, event, include_value)
   return text
 end
 
+local function should_include_value(event)
+  if not has_text(event.value) then
+    return false
+  end
+
+  if string.find(event.value, "\n", 1, true) ~= nil
+    or string.find(event.value, "\r", 1, true) ~= nil then
+    return false
+  end
+
+  return string.len(event.value) <= 120
+end
+
 local function looks_like_search(name)
   if not has_text(name) then
     return false
@@ -76,10 +89,11 @@ function on_focus_changed(event)
         else
           text = "حقل بحث " .. name
         end
+        include_value = true
       else
         text = "محرر كود " .. name
+        include_value = should_include_value(event)
       end
-      include_value = true
     elseif event.role == "tabitem" then
       text = "تبويب محرر " .. name
     elseif event.role == "treeitem" then
@@ -139,7 +153,7 @@ function on_focus_changed(event)
       text = "مستند كود " .. name
     elseif event.role == "text" and has_text(event.value) then
       text = "نص " .. name
-      include_value = true
+      include_value = should_include_value(event)
     elseif event.role == "tab" then
       text = "لوحة " .. name
     elseif event.role == "pane" then

@@ -18,6 +18,19 @@ local function append_details(text, event, include_value)
   return text
 end
 
+local function should_include_value(event)
+  if not has_text(event.value) then
+    return false
+  end
+
+  if string.find(event.value, "\n", 1, true) ~= nil
+    or string.find(event.value, "\r", 1, true) ~= nil then
+    return false
+  end
+
+  return string.len(event.value) <= 120
+end
+
 function on_focus_changed(event)
   local name = has_text(event.name) and event.name or "عنصر غير مسمى"
   local text = nil
@@ -61,7 +74,7 @@ function on_focus_changed(event)
       text = "عنوان " .. name
     elseif event.semantic_role == "web_edit" then
       text = "حقل ويب " .. name
-      include_value = true
+      include_value = should_include_value(event)
     elseif event.semantic_role == "web_button" then
       text = "زر ويب " .. name
     elseif event.semantic_role == "web_checkbox" then
@@ -70,7 +83,7 @@ function on_focus_changed(event)
       text = "زر اختيار ويب " .. name
     elseif event.semantic_role == "web_combobox" then
       text = "مربع خيارات ويب " .. name
-      include_value = true
+      include_value = should_include_value(event)
     elseif event.semantic_role == "web_table" then
       text = "جدول " .. name
     elseif event.semantic_role == "web_list" then
@@ -88,7 +101,7 @@ function on_focus_changed(event)
     text = "زر " .. name
   elseif text == nil and event.role == "edit" then
     text = "حقل تحرير " .. name
-    include_value = true
+    include_value = should_include_value(event)
   elseif text == nil and event.role == "menu" then
     text = "قائمة " .. name
   elseif text == nil and event.role == "menuitem" then
@@ -99,7 +112,7 @@ function on_focus_changed(event)
     text = "زر اختيار " .. name
   elseif text == nil and event.role == "combobox" then
     text = "مربع خيارات " .. name
-    include_value = true
+    include_value = should_include_value(event)
   elseif text == nil and event.role == "tabitem" then
     text = "علامة تبويب " .. name
   elseif text == nil and event.role == "tab" then
