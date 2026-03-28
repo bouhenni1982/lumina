@@ -75,9 +75,11 @@ internal sealed partial class Ia2FallbackProbe
 
         try
         {
+            Guid accessibleGuid = IAccessibleGuid;
+            Guid accessible2Guid = IAccessible2Guid;
             int queryResult = serviceProvider.QueryService(
-                ref IAccessibleGuid,
-                ref IAccessible2Guid,
+                ref accessibleGuid,
+                ref accessible2Guid,
                 out queriedObject);
 
             if (queryResult == 0 && queriedObject is not null)
@@ -85,9 +87,11 @@ internal sealed partial class Ia2FallbackProbe
                 return true;
             }
 
+            Guid serviceAccessible2Guid = IAccessible2Guid;
+            Guid interfaceAccessible2Guid = IAccessible2Guid;
             queryResult = serviceProvider.QueryService(
-                ref IAccessible2Guid,
-                ref IAccessible2Guid,
+                ref serviceAccessible2Guid,
+                ref interfaceAccessible2Guid,
                 out queriedObject);
 
             return queryResult == 0 && queriedObject is not null;
