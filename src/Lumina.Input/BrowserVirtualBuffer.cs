@@ -74,6 +74,19 @@ public static class BrowserVirtualBuffer
     public static string ReadCurrentLine() =>
         EnsureSnapshotReady() ? ReadCurrent() : "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
 
+    public static bool IsCurrentEditField()
+    {
+        lock (Sync)
+        {
+            if (_snapshot is null || _snapshot.Items.Count == 0 || _currentIndex < 0)
+            {
+                return false;
+            }
+
+            return FocusSnapshotReader.ResolveWebSemanticRole(_snapshot.Items[_currentIndex].Element) == "web_edit";
+        }
+    }
+
     public static string ReadNextLine()
     {
         if (!EnsureSnapshotReady())

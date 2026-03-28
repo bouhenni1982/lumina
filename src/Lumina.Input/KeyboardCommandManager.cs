@@ -145,6 +145,8 @@ public sealed class KeyboardCommandManager : IDisposable
     private bool _insertDown;
     private bool _textReviewMode;
     private bool _browserBrowseMode = true;
+    private bool _browserAutoFocusOnEdit;
+    private bool _browserEditDirty;
     private DateTime _lastElementDetailsCommandUtc = DateTime.MinValue;
 
     private static readonly TimeSpan AdvancedDetailsRepeatWindow = TimeSpan.FromMilliseconds(900);
@@ -407,6 +409,24 @@ public sealed class KeyboardCommandManager : IDisposable
         bool altDown = IsKeyCurrentlyDown(VkMenu);
         bool winDown = IsKeyCurrentlyDown(VkLWin) || IsKeyCurrentlyDown(VkRWin);
 
+        if (ShouldLeaveAutoFocusedEdit(vkCode, controlDown, altDown, winDown, isExtendedNavigationKey))
+        {
+            _browserBrowseMode = true;
+            _browserAutoFocusOnEdit = false;
+            _browserEditDirty = false;
+            BrowserVirtualBuffer.SyncToFocusedElement();
+
+            if (TryHandleBrowserArrowReading(vkCode, controlDown))
+            {
+                return (IntPtr)1;
+            }
+        }
+
+        if (ShouldMarkBrowserEditAsDirty(vkCode, controlDown, altDown, winDown))
+        {
+            _browserEditDirty = true;
+        }
+
         if (_insertDown && !controlDown && !altDown && !winDown)
         {
             if (vkCode == VkSpace && IsBrowserContext())
@@ -640,6 +660,11 @@ public sealed class KeyboardCommandManager : IDisposable
             return false;
         }
 
+        if (BrowserVirtualBuffer.IsCurrentEditField())
+        {
+            EnterAutoFocusOnEditField();
+        }
+
         ThreadPool.QueueUserWorkItem(_ => _speakBrowserMessage(text));
         return true;
     }
@@ -681,6 +706,91 @@ public sealed class KeyboardCommandManager : IDisposable
         return vkCode is VkUp or VkDown or VkLeft or VkRight;
     }
 
+    private void EnterAutoFocusOnEditField()
+    {
+        _browserBrowseMode = false;
+        _browserAutoFocusOnEdit = true;
+        _browserEditDirty = false;
+        PlayNavigationAlertTone();
+    }
+
+    private bool ShouldLeaveAutoFocusedEdit(
+        uint vkCode,
+        bool controlDown,
+        bool altDown,
+        bool winDown,
+        bool isExtendedNavigationKey)
+    {
+        if (_browserBrowseMode ||
+            !_browserAutoFocusOnEdit ||
+            _browserEditDirty ||
+            altDown ||
+            winDown ||
+            !isExtendedNavigationKey ||
+            !IsBrowserEditFocused())
+        {
+            return false;
+        }
+
+        return vkCode is VkUp or VkDown or VkLeft or VkRight;
+    }
+
+    private bool ShouldMarkBrowserEditAsDirty(uint vkCode, bool controlDown, bool altDown, bool winDown)
+    {
+        if (_browserBrowseMode ||
+            !_browserAutoFocusOnEdit ||
+            !IsBrowserEditFocused() ||
+            altDown ||
+            winDown)
+        {
+            return false;
+        }
+
+        if (controlDown)
+        {
+            return false;
+        }
+
+        return IsLikelyTextInputKey(vkCode);
+    }
+
+    private bool IsBrowserEditFocused()
+    {
+        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+        if (focused is null || !FocusSnapshotReader.IsBrowserContext(focused))
+        {
+            return false;
+        }
+
+        return FocusSnapshotReader.ResolveWebSemanticRole(focused) == "web_edit";
+    }
+
+    private static bool IsLikelyTextInputKey(uint vkCode)
+    {
+        if (vkCode is >= 0x30 and <= 0x5A)
+        {
+            return true;
+        }
+
+        if (vkCode is >= 0x60 and <= 0x6F)
+        {
+            return true;
+        }
+
+        return vkCode is 0x08 or 0x20 or 0x2E or 0xBA or 0xBB or 0xBC or 0xBD or 0xBE or 0xBF or 0xC0 or 0xDB or 0xDC or 0xDD or 0xDE;
+    }
+
+    private static void PlayNavigationAlertTone()
+    {
+        try
+        {
+            MessageBeep(0x00000040);
+        }
+        catch
+        {
+        }
+    }
+
     private static bool IsKeyCurrentlyDown(uint virtualKey) => (GetAsyncKeyState((int)virtualKey) & 0x8000) != 0;
 
     private delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
@@ -696,6 +806,9 @@ public sealed class KeyboardCommandManager : IDisposable
 
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
+
+    [DllImport("user32.dll")]
+    private static extern bool MessageBeep(uint uType);
 
     [DllImport("user32.dll")]
     private static extern int GetMessage(out Msg lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
