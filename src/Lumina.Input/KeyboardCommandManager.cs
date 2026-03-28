@@ -47,6 +47,8 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _speakCurrentElementAdvancedDetails;
     private readonly Action _toggleInspector;
     private readonly Action _speakPageTitle;
+    private readonly Action _speakCurrentWindowSummary;
+    private readonly Action _speakCurrentStatusSummary;
     private readonly Action _speakWebSummary;
     private readonly Action _moveToNextHeading;
     private readonly Action _moveToPreviousHeading;
@@ -90,6 +92,8 @@ public sealed class KeyboardCommandManager : IDisposable
         Action speakCurrentElementAdvancedDetails,
         Action toggleInspector,
         Action speakPageTitle,
+        Action speakCurrentWindowSummary,
+        Action speakCurrentStatusSummary,
         Action speakWebSummary,
         Action moveToNextHeading,
         Action moveToPreviousHeading,
@@ -121,6 +125,8 @@ public sealed class KeyboardCommandManager : IDisposable
         _speakCurrentElementAdvancedDetails = speakCurrentElementAdvancedDetails;
         _toggleInspector = toggleInspector;
         _speakPageTitle = speakPageTitle;
+        _speakCurrentWindowSummary = speakCurrentWindowSummary;
+        _speakCurrentStatusSummary = speakCurrentStatusSummary;
         _speakWebSummary = speakWebSummary;
         _moveToNextHeading = moveToNextHeading;
         _moveToPreviousHeading = moveToPreviousHeading;
@@ -290,6 +296,8 @@ public sealed class KeyboardCommandManager : IDisposable
             VkL => _repeatLastSpeech,
             VkI => _toggleInspector,
             VkT => _speakPageTitle,
+            VkHome => _speakCurrentWindowSummary,
+            VkEnd => _speakCurrentStatusSummary,
             VkW => _speakWebSummary,
             VkS => _summarizeCurrentPage,
             VkR => _refreshVirtualBuffer,

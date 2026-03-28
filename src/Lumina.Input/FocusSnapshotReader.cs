@@ -161,6 +161,83 @@ public static class FocusSnapshotReader
         return $"عنوان الصفحة أو النافذة {title}";
     }
 
+    public static string ReadCurrentWindowSummary()
+    {
+        AutomationElement? element = GetFocusedElement();
+        if (element is null)
+        {
+            return "لا توجد نافذة نشطة حاليا.";
+        }
+
+        AutomationElement? window = FindAncestor(
+            element,
+            current => current.Current.ControlType == ControlType.Window);
+
+        if (window is null)
+        {
+            return "تعذر تحديد النافذة الحالية.";
+        }
+
+        string windowName = ResolveName(window);
+        string process = ResolveProcessName(window);
+        string className = NormalizeValue(window.Current.ClassName ?? string.Empty, "غير معروف");
+        string framework = NormalizeValue(window.Current.FrameworkId ?? string.Empty, "غير معروف");
+        string focusedRole = ResolveRole(element);
+        string focusedName = ResolveName(element);
+
+        List<string> segments =
+        [
+            $"النافذة الحالية {windowName}",
+            $"العملية {process}",
+            $"الإطار {framework}",
+            $"الصنف {className}",
+            $"العنصر النشط {focusedRole} {focusedName}"
+        ];
+
+        return string.Join(". ", segments);
+    }
+
+    public static string ReadCurrentStatusSummary()
+    {
+        AutomationElement? element = GetFocusedElement();
+        if (element is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
+        string name = ResolveName(element);
+        string role = ResolveRole(element);
+        string value = TryReadValue(element);
+        string helpText = element.Current.HelpText ?? string.Empty;
+        string itemStatus = element.Current.ItemStatus ?? string.Empty;
+
+        List<string> segments =
+        [
+            $"حالة العنصر {role} {name}",
+            $"ممكّن {(element.Current.IsEnabled ? "نعم" : "لا")}",
+            $"قابل للتركيز {(element.Current.IsKeyboardFocusable ? "نعم" : "لا")}",
+            $"خارج الشاشة {(element.Current.IsOffscreen ? "نعم" : "لا")}",
+            $"يمتلك التركيز {(element.Current.HasKeyboardFocus ? "نعم" : "لا")}"
+        ];
+
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            segments.Add($"القيمة {value}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(itemStatus))
+        {
+            segments.Add($"حالة العنصر {itemStatus}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(helpText))
+        {
+            segments.Add($"تلميح {helpText}");
+        }
+
+        return string.Join(". ", segments);
+    }
+
     public static string ReadCurrentWebSummary()
     {
         AutomationElement? element = GetFocusedElement();

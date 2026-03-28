@@ -17,6 +17,8 @@ Console.WriteLine("كرر Insert+Tab بسرعة لقراءة تفاصيل تشخ
 Console.WriteLine("Insert+L لإعادة آخر رسالة منطوقة.");
 Console.WriteLine("Insert+I لتبديل Inspector.");
 Console.WriteLine("Insert+T لقراءة عنوان الصفحة الحالية في المتصفح.");
+Console.WriteLine("Insert+Home لقراءة ملخص النافذة الحالية.");
+Console.WriteLine("Insert+End لقراءة حالة العنصر الحالي.");
 Console.WriteLine("Insert+W لقراءة ملخص ويب سريع للعنصر الحالي.");
 Console.WriteLine("Insert+S لقراءة ملخص الصفحة الحالية.");
 Console.WriteLine("Insert+R لتحديث المخزن الظاهري للصفحة.");
@@ -61,6 +63,16 @@ using var hotKeys = new KeyboardCommandManager(
     speakPageTitle: () =>
     {
         string text = FocusSnapshotReader.ReadCurrentPageTitle();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    speakCurrentWindowSummary: () =>
+    {
+        string text = FocusSnapshotReader.ReadCurrentWindowSummary();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    speakCurrentStatusSummary: () =>
+    {
+        string text = FocusSnapshotReader.ReadCurrentStatusSummary();
         speechService.Enqueue(new SpeechRequest(text, 100, true));
     },
     speakWebSummary: () =>
