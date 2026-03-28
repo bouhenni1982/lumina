@@ -28,6 +28,7 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
 - تنطق الناتج
 - تسجل Inspector في `inspector/focus-events.jsonl`
 - تعرض نافذة Inspector حيّة فيها آخر أحداث focus
+- ترصد التطبيقات المرشحة لـ `IAccessible2` مثل Firefox وChromium وElectron
 - تدعم hotkeys:
   - `Ctrl+Alt+F` لقراءة العنصر الحالي
   - `Ctrl+Alt+L` لإعادة آخر نطق
@@ -35,6 +36,6 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
 
 ## ما الذي لم يكتمل بعد
 
-- دعم `IAccessible2`
+- تعميق قراءة `IAccessible2` إلى واجهات النص والعلاقات وليس الاكتشاف فقط
 - اعتراض لوحة المفاتيح
 - طبقة AI وOCR

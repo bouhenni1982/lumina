@@ -8,6 +8,7 @@ namespace Lumina.Accessibility.Windows;
 public sealed class UiaAccessibilityService : IAccessibilityService
 {
     private readonly MsaaFallbackProbe _msaaFallbackProbe = new();
+    private readonly Ia2FallbackProbe _ia2FallbackProbe = new();
 
     public event EventHandler<ScreenEvent>? EventRaised;
 
@@ -30,6 +31,7 @@ public sealed class UiaAccessibilityService : IAccessibilityService
         string name = element.Current.Name ?? "Unnamed";
         string? value = null;
         string sourceApi = "UIA";
+        string? hint = element.Current.HelpText;
 
         if (element.TryGetCurrentPattern(ValuePattern.Pattern, out object? pattern))
         {
@@ -65,6 +67,23 @@ public sealed class UiaAccessibilityService : IAccessibilityService
             }
         }
 
+        Ia2AccessibleInfo? ia2Info = _ia2FallbackProbe.TryGetInfo(
+            element.Current.NativeWindowHandle,
+            processName);
+
+        if (ia2Info is not null)
+        {
+            if (string.IsNullOrWhiteSpace(hint))
+            {
+                hint = BuildIa2Hint(ia2Info);
+            }
+
+            string ia2Tag = ia2Info.IsAvailable ? "IA2" : "IA2-candidate";
+            sourceApi = sourceApi.Contains("MSAA", StringComparison.Ordinal)
+                ? $"UIA+MSAA+{ia2Tag}"
+                : $"UIA+{ia2Tag}";
+        }
+
         string id = string.IsNullOrWhiteSpace(element.Current.AutomationId)
             ? $"{element.Current.ProcessId}:{role}:{name}"
             : element.Current.AutomationId;
@@ -75,7 +94,7 @@ public sealed class UiaAccessibilityService : IAccessibilityService
             Name: name,
             Role: role,
             Value: value,
-            Hint: element.Current.HelpText,
+            Hint: hint,
             SourceProcess: processName,
             TimestampUtc: DateTimeOffset.UtcNow);
 
@@ -103,5 +122,27 @@ public sealed class UiaAccessibilityService : IAccessibilityService
         {
             return "unknown";
         }
+    }
+
+    private static string BuildIa2Hint(Ia2AccessibleInfo ia2Info)
+    {
+        List<string> parts = new();
+
+        if (!string.IsNullOrWhiteSpace(ia2Info.Description))
+        {
+            parts.Add(ia2Info.Description);
+        }
+
+        if (!string.IsNullOrWhiteSpace(ia2Info.KeyboardShortcut))
+        {
+            parts.Add($"shortcut: {ia2Info.KeyboardShortcut}");
+        }
+
+        if (!ia2Info.IsAvailable)
+        {
+            parts.Add($"ia2 candidate via {ia2Info.Framework}/{ia2Info.WindowClass}");
+        }
+
+        return string.Join(" | ", parts);
     }
 }
