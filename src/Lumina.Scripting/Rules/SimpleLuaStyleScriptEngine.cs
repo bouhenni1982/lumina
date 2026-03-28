@@ -107,6 +107,15 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
     {
         AccessibleNode node = screenEvent.Node;
 
+        if (screenEvent.EventType is "liveRegionChanged" or "liveTextChanged")
+        {
+            string liveText = BuildLiveRegionSpeech(node);
+            return new SpeechRequest(
+                Text: liveText,
+                Priority: screenEvent.Priority,
+                Interrupt: screenEvent.Priority >= 100);
+        }
+
         string text = node.Role switch
         {
             _ when node.ContextKind == "browser" && node.SemanticRole == "web_link" => $"رابط {node.Name}",
@@ -138,5 +147,40 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
             Text: text,
             Priority: screenEvent.Priority,
             Interrupt: true);
+    }
+
+    private static string BuildLiveRegionSpeech(AccessibleNode node)
+    {
+        List<string> parts = [];
+
+        if (!string.IsNullOrWhiteSpace(node.Name) && node.Name != "Unnamed")
+        {
+            parts.Add(node.Name);
+        }
+
+        if (!string.IsNullOrWhiteSpace(node.Value) &&
+            !string.Equals(node.Value, node.Name, StringComparison.Ordinal))
+        {
+            parts.Add(node.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(node.StateSummary))
+        {
+            parts.Add(node.StateSummary);
+        }
+
+        if (parts.Count == 0)
+        {
+            string fallback = node.SemanticRole switch
+            {
+                "web_dialog" => "تم تحديث حوار ويب",
+                "web_landmark" => "تم تحديث معلم في الصفحة",
+                _ => "تم تحديث محتوى حي في الصفحة"
+            };
+
+            return fallback;
+        }
+
+        return string.Join(". ", parts.Distinct(StringComparer.Ordinal));
     }
 }

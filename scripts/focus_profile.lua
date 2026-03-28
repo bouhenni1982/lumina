@@ -23,6 +23,37 @@ function on_focus_changed(event)
   local text = nil
   local include_value = false
 
+  if event.type == "liveRegionChanged" or event.type == "liveTextChanged" then
+    local live_parts = {}
+
+    if has_text(event.name) then
+      table.insert(live_parts, event.name)
+    end
+
+    if has_text(event.value) and event.value ~= event.name then
+      table.insert(live_parts, event.value)
+    end
+
+    if has_text(event.state) then
+      table.insert(live_parts, event.state)
+    end
+
+    if #live_parts == 0 then
+      if event.semantic_role == "web_dialog" then
+        text = "تم تحديث حوار في الصفحة"
+      else
+        text = "تم تحديث محتوى في الصفحة"
+      end
+    else
+      text = table.concat(live_parts, ". ")
+    end
+
+    return {
+      action = "speak",
+      text = text
+    }
+  end
+
   if event.context_kind == "browser" then
     if event.semantic_role == "web_link" then
       text = "رابط " .. name

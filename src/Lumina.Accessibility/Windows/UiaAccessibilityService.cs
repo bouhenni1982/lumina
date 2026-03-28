@@ -10,12 +10,36 @@ public sealed class UiaAccessibilityService : IAccessibilityService
     private readonly MsaaFallbackProbe _msaaFallbackProbe = new();
     private readonly Ia2FallbackProbe _ia2FallbackProbe = new();
     private readonly BrowserAccessibilityAdapter _browserAccessibilityAdapter = new();
+    private readonly AutomationFocusChangedEventHandler _focusChangedHandler;
+    private readonly AutomationEventHandler _liveRegionChangedHandler;
+    private readonly AutomationPropertyChangedEventHandler _propertyChangedHandler;
 
     public event EventHandler<ScreenEvent>? EventRaised;
 
+    public UiaAccessibilityService()
+    {
+        _focusChangedHandler = OnFocusChanged;
+        _liveRegionChangedHandler = OnLiveRegionChanged;
+        _propertyChangedHandler = OnLivePropertyChanged;
+    }
+
     public void Start()
     {
-        Automation.AddAutomationFocusChangedEventHandler(OnFocusChanged);
+        Automation.AddAutomationFocusChangedEventHandler(_focusChangedHandler);
+        Automation.AddAutomationEventHandler(
+            AutomationElementIdentifiers.LiveRegionChangedEvent,
+            AutomationElement.RootElement,
+            TreeScope.Subtree,
+            _liveRegionChangedHandler);
+        Automation.AddAutomationPropertyChangedEventHandler(
+            AutomationElement.RootElement,
+            TreeScope.Subtree,
+            _propertyChangedHandler,
+            AutomationElement.NameProperty,
+            AutomationElement.HelpTextProperty,
+            AutomationElement.ItemStatusProperty,
+            ValuePattern.ValueProperty,
+            AutomationElementIdentifiers.LiveSettingProperty);
     }
 
     private void OnFocusChanged(object src, AutomationFocusChangedEventArgs args)
@@ -25,6 +49,74 @@ public sealed class UiaAccessibilityService : IAccessibilityService
             return;
         }
 
+        RaiseScreenEvent(element, "focusChanged", userInitiated: true, priority: 100);
+    }
+
+    private void OnLiveRegionChanged(object src, AutomationEventArgs args)
+    {
+        if (src is not AutomationElement element)
+        {
+            return;
+        }
+
+        if (!ShouldAnnounceLiveElement(element))
+        {
+            return;
+        }
+
+        RaiseScreenEvent(element, "liveRegionChanged", userInitiated: false, priority: ResolveLivePriority(element));
+    }
+
+    private void OnLivePropertyChanged(object src, AutomationPropertyChangedEventArgs args)
+    {
+        if (src is not AutomationElement element)
+        {
+            return;
+        }
+
+        if (!ShouldAnnounceLiveElement(element))
+        {
+            return;
+        }
+
+        if (args.Property != AutomationElement.NameProperty &&
+            args.Property != AutomationElement.HelpTextProperty &&
+            args.Property != AutomationElement.ItemStatusProperty &&
+            args.Property != ValuePattern.ValueProperty &&
+            args.Property != AutomationElementIdentifiers.LiveSettingProperty)
+        {
+            return;
+        }
+
+        RaiseScreenEvent(element, "liveTextChanged", userInitiated: false, priority: ResolveLivePriority(element));
+    }
+
+    public void Dispose()
+    {
+        Automation.RemoveAutomationFocusChangedEventHandler(_focusChangedHandler);
+        Automation.RemoveAutomationEventHandler(
+            AutomationElementIdentifiers.LiveRegionChangedEvent,
+            AutomationElement.RootElement,
+            _liveRegionChangedHandler);
+        Automation.RemoveAutomationPropertyChangedEventHandler(
+            AutomationElement.RootElement,
+            _propertyChangedHandler);
+    }
+
+    private void RaiseScreenEvent(AutomationElement element, string eventType, bool userInitiated, int priority)
+    {
+        AccessibleNode node = BuildAccessibleNode(element);
+        EventRaised?.Invoke(
+            this,
+            new ScreenEvent(
+                EventType: eventType,
+                Node: node,
+                UserInitiated: userInitiated,
+                Priority: priority));
+    }
+
+    private AccessibleNode BuildAccessibleNode(AutomationElement element)
+    {
         string processName = ResolveProcessName(element.Current.ProcessId);
         string role =
             element.Current.ControlType?.ProgrammaticName?.Replace("ControlType.", "").ToLowerInvariant()
@@ -96,13 +188,13 @@ public sealed class UiaAccessibilityService : IAccessibilityService
             hint);
 
         role = browserAdaptation.Role;
-        hint = browserAdaptation.Hint;
+        hint = AppendLiveSettingHint(element, browserAdaptation.Hint);
 
         string id = string.IsNullOrWhiteSpace(element.Current.AutomationId)
             ? $"{element.Current.ProcessId}:{role}:{name}"
             : element.Current.AutomationId;
 
-        AccessibleNode node = new(
+        return new AccessibleNode(
             Id: id,
             SourceApi: sourceApi,
             Name: name,
@@ -115,19 +207,108 @@ public sealed class UiaAccessibilityService : IAccessibilityService
             ContextKind: browserAdaptation.ContextKind,
             SourceProcess: processName,
             TimestampUtc: DateTimeOffset.UtcNow);
-
-        EventRaised?.Invoke(
-            this,
-            new ScreenEvent(
-                EventType: "focusChanged",
-                Node: node,
-                UserInitiated: true,
-                Priority: 100));
     }
 
-    public void Dispose()
+    private static bool ShouldAnnounceLiveElement(AutomationElement element)
     {
-        Automation.RemoveAllEventHandlers();
+        if (!IsLikelyBrowserContext(element))
+        {
+            return false;
+        }
+
+        AutomationLiveSetting liveSetting = ResolveLiveSetting(element);
+        if (liveSetting != AutomationLiveSetting.Off)
+        {
+            return true;
+        }
+
+        string semanticRole = ResolveSemanticRole(element);
+        if (semanticRole is "web_dialog" or "web_landmark")
+        {
+            return true;
+        }
+
+        string localizedRole = (element.Current.LocalizedControlType ?? string.Empty).ToLowerInvariant();
+        string itemType = (element.Current.ItemType ?? string.Empty).ToLowerInvariant();
+        string name = (element.Current.Name ?? string.Empty).ToLowerInvariant();
+
+        return localizedRole.Contains("alert") ||
+               localizedRole.Contains("status") ||
+               itemType.Contains("alert") ||
+               itemType.Contains("status") ||
+               name.Contains("alert") ||
+               name.Contains("status");
+    }
+
+    private static bool IsLikelyBrowserContext(AutomationElement element)
+    {
+        string processName = ResolveProcessName(element.Current.ProcessId);
+        string sourceApi = "UIA";
+        string role =
+            element.Current.ControlType?.ProgrammaticName?.Replace("ControlType.", "").ToLowerInvariant()
+            ?? "control";
+        string? value = null;
+        string? hint = element.Current.HelpText;
+
+        return new BrowserAccessibilityAdapter()
+            .Apply(element, processName, sourceApi, role, value, hint)
+            .ContextKind == "browser";
+    }
+
+    private static string ResolveSemanticRole(AutomationElement element)
+    {
+        string processName = ResolveProcessName(element.Current.ProcessId);
+        string role =
+            element.Current.ControlType?.ProgrammaticName?.Replace("ControlType.", "").ToLowerInvariant()
+            ?? "control";
+        string? hint = element.Current.HelpText;
+
+        return new BrowserAccessibilityAdapter()
+            .Apply(element, processName, "UIA", role, null, hint)
+            .SemanticRole ?? "web_control";
+    }
+
+    private static AutomationLiveSetting ResolveLiveSetting(AutomationElement element)
+    {
+        try
+        {
+            object propertyValue = element.GetCurrentPropertyValue(AutomationElementIdentifiers.LiveSettingProperty);
+            return propertyValue is AutomationLiveSetting liveSetting
+                ? liveSetting
+                : AutomationLiveSetting.Off;
+        }
+        catch
+        {
+            return AutomationLiveSetting.Off;
+        }
+    }
+
+    private static int ResolveLivePriority(AutomationElement element) =>
+        ResolveLiveSetting(element) == AutomationLiveSetting.Assertive ? 110 : 90;
+
+    private static string? AppendLiveSettingHint(AutomationElement element, string? hint)
+    {
+        AutomationLiveSetting liveSetting = ResolveLiveSetting(element);
+        if (liveSetting == AutomationLiveSetting.Off)
+        {
+            return hint;
+        }
+
+        string liveText = liveSetting == AutomationLiveSetting.Assertive
+            ? "live:assertive"
+            : "live:polite";
+
+        if (string.IsNullOrWhiteSpace(hint))
+        {
+            return liveText;
+        }
+
+        if (hint.Contains(liveText, StringComparison.OrdinalIgnoreCase))
+        {
+            return hint;
+        }
+
+        return $"{hint} | {liveText}";
     }
 
     private static string ResolveProcessName(int processId)
