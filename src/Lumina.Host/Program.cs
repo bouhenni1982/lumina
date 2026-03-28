@@ -26,6 +26,9 @@ try
     Console.WriteLine("Insert+G لقراءة سياق الإعدادات الحالي.");
     Console.WriteLine("Insert+N للانتقال إلى العنصر التالي داخل القائمة أو القسم الحالي.");
     Console.WriteLine("Insert+P للانتقال إلى العنصر السابق داخل القائمة أو القسم الحالي.");
+    Console.WriteLine("Insert+C أو Shift+Insert+C للتنقل بين خانات الاختيار داخل الإعدادات.");
+    Console.WriteLine("Insert+A أو Shift+Insert+A للتنقل بين الأزرار داخل الإعدادات.");
+    Console.WriteLine("Insert+O أو Shift+Insert+O للتنقل بين مربعات الخيارات داخل الإعدادات.");
     Console.WriteLine("Insert+S لقراءة ملخص الصفحة الحالية.");
     Console.WriteLine("Insert+R لتحديث المخزن الظاهري للصفحة.");
     Console.WriteLine("Insert+B لملخص حالة المخزن الظاهري.");
@@ -105,6 +108,36 @@ try
         moveToPreviousContextItem: () =>
         {
             string text = FocusSnapshotReader.MoveToPreviousContextItem();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextSettingsCheckbox: () =>
+        {
+            string text = FocusSnapshotReader.MoveToNextSettingsCheckbox();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousSettingsCheckbox: () =>
+        {
+            string text = FocusSnapshotReader.MoveToPreviousSettingsCheckbox();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextSettingsButton: () =>
+        {
+            string text = FocusSnapshotReader.MoveToNextSettingsButton();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousSettingsButton: () =>
+        {
+            string text = FocusSnapshotReader.MoveToPreviousSettingsButton();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextSettingsComboBox: () =>
+        {
+            string text = FocusSnapshotReader.MoveToNextSettingsComboBox();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousSettingsComboBox: () =>
+        {
+            string text = FocusSnapshotReader.MoveToPreviousSettingsComboBox();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         moveToNextHeading: () =>

@@ -22,10 +22,13 @@ public sealed class KeyboardCommandManager : IDisposable
 
     private const uint VkF = 0x46;
     private const uint VkG = 0x47;
+    private const uint VkC = 0x43;
+    private const uint VkA = 0x41;
     private const uint VkL = 0x4C;
     private const uint VkI = 0x49;
     private const uint VkM = 0x4D;
     private const uint VkN = 0x4E;
+    private const uint VkO = 0x4F;
     private const uint VkP = 0x50;
     private const uint VkReturn = 0x0D;
     private const uint VkTab = 0x09;
@@ -61,6 +64,12 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _speakSettingsContext;
     private readonly Action _moveToNextContextItem;
     private readonly Action _moveToPreviousContextItem;
+    private readonly Action _moveToNextSettingsCheckbox;
+    private readonly Action _moveToPreviousSettingsCheckbox;
+    private readonly Action _moveToNextSettingsButton;
+    private readonly Action _moveToPreviousSettingsButton;
+    private readonly Action _moveToNextSettingsComboBox;
+    private readonly Action _moveToPreviousSettingsComboBox;
     private readonly Action _moveToNextHeading;
     private readonly Action _moveToPreviousHeading;
     private readonly Action _moveToNextLink;
@@ -112,6 +121,12 @@ public sealed class KeyboardCommandManager : IDisposable
         Action speakSettingsContext,
         Action moveToNextContextItem,
         Action moveToPreviousContextItem,
+        Action moveToNextSettingsCheckbox,
+        Action moveToPreviousSettingsCheckbox,
+        Action moveToNextSettingsButton,
+        Action moveToPreviousSettingsButton,
+        Action moveToNextSettingsComboBox,
+        Action moveToPreviousSettingsComboBox,
         Action moveToNextHeading,
         Action moveToPreviousHeading,
         Action moveToNextLink,
@@ -151,6 +166,12 @@ public sealed class KeyboardCommandManager : IDisposable
         _speakSettingsContext = speakSettingsContext;
         _moveToNextContextItem = moveToNextContextItem;
         _moveToPreviousContextItem = moveToPreviousContextItem;
+        _moveToNextSettingsCheckbox = moveToNextSettingsCheckbox;
+        _moveToPreviousSettingsCheckbox = moveToPreviousSettingsCheckbox;
+        _moveToNextSettingsButton = moveToNextSettingsButton;
+        _moveToPreviousSettingsButton = moveToPreviousSettingsButton;
+        _moveToNextSettingsComboBox = moveToNextSettingsComboBox;
+        _moveToPreviousSettingsComboBox = moveToPreviousSettingsComboBox;
         _moveToNextHeading = moveToNextHeading;
         _moveToPreviousHeading = moveToPreviousHeading;
         _moveToNextLink = moveToNextLink;
@@ -291,7 +312,7 @@ public sealed class KeyboardCommandManager : IDisposable
                 return (IntPtr)1;
             }
 
-            if (TryHandleScreenReaderCommand(vkCode))
+            if (TryHandleScreenReaderCommand(vkCode, shiftDown))
             {
                 return (IntPtr)1;
             }
@@ -324,7 +345,7 @@ public sealed class KeyboardCommandManager : IDisposable
         return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
     }
 
-    private bool TryHandleScreenReaderCommand(uint vkCode)
+    private bool TryHandleScreenReaderCommand(uint vkCode, bool shiftDown)
     {
         if (vkCode == VkTab)
         {
@@ -346,6 +367,12 @@ public sealed class KeyboardCommandManager : IDisposable
             VkG => _speakSettingsContext,
             VkN => _moveToNextContextItem,
             VkP => _moveToPreviousContextItem,
+            VkC when shiftDown => _moveToPreviousSettingsCheckbox,
+            VkC => _moveToNextSettingsCheckbox,
+            VkA when shiftDown => _moveToPreviousSettingsButton,
+            VkA => _moveToNextSettingsButton,
+            VkO when shiftDown => _moveToPreviousSettingsComboBox,
+            VkO => _moveToNextSettingsComboBox,
             VkS => _summarizeCurrentPage,
             VkR => _refreshVirtualBuffer,
             VkB => _summarizeVirtualBuffer,

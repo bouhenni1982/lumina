@@ -353,6 +353,18 @@ public static class FocusSnapshotReader
 
     public static string MoveToPreviousContextItem() => MoveToContextItem(moveNext: false);
 
+    public static string MoveToNextSettingsCheckbox() => MoveToSettingsControlType(ControlType.CheckBox, "خانة اختيار", "خانات اختيار", moveNext: true);
+
+    public static string MoveToPreviousSettingsCheckbox() => MoveToSettingsControlType(ControlType.CheckBox, "خانة اختيار", "خانات اختيار", moveNext: false);
+
+    public static string MoveToNextSettingsButton() => MoveToSettingsControlType(ControlType.Button, "زر", "أزرار", moveNext: true);
+
+    public static string MoveToPreviousSettingsButton() => MoveToSettingsControlType(ControlType.Button, "زر", "أزرار", moveNext: false);
+
+    public static string MoveToNextSettingsComboBox() => MoveToSettingsControlType(ControlType.ComboBox, "مربع خيارات", "مربعات خيارات", moveNext: true);
+
+    public static string MoveToPreviousSettingsComboBox() => MoveToSettingsControlType(ControlType.ComboBox, "مربع خيارات", "مربعات خيارات", moveNext: false);
+
     internal static string BuildWebSummary(AutomationElement element)
     {
         string semanticRole = ResolveWebSemanticRole(element);
@@ -450,13 +462,7 @@ public static class FocusSnapshotReader
 
     private static string MoveToSettingsPeer(AutomationElement element, bool moveNext)
     {
-        AutomationElement scope = FindAncestor(
-                element,
-                current => current.Current.ControlType == ControlType.Group ||
-                           current.Current.ControlType == ControlType.TabItem ||
-                           current.Current.ControlType == ControlType.Pane)
-            ?? FindAncestor(element, current => current.Current.ControlType == ControlType.Window)
-            ?? element;
+        AutomationElement scope = ResolveSettingsScope(element);
 
         try
         {
@@ -494,6 +500,52 @@ public static class FocusSnapshotReader
         }
     }
 
+    private static string MoveToSettingsControlType(ControlType controlType, string singularLabel, string pluralLabel, bool moveNext)
+    {
+        AutomationElement? element = GetFocusedElement();
+        if (element is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
+        if (!IsSettingsLikeContext(element))
+        {
+            return "العنصر الحالي ليس داخل إعدادات معروفة.";
+        }
+
+        AutomationElement scope = ResolveSettingsScope(element);
+
+        try
+        {
+            AutomationElementCollection peers = scope.FindAll(
+                TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, controlType));
+
+            if (peers.Count == 0)
+            {
+                return $"لا توجد {pluralLabel} في هذا القسم.";
+            }
+
+            int referenceIndex = FindClosestElementIndex(peers, element);
+            int nextIndex = moveNext ? referenceIndex + 1 : referenceIndex - 1;
+
+            if (nextIndex < 0 || nextIndex >= peers.Count)
+            {
+                return moveNext
+                    ? $"وصلت إلى آخر {singularLabel} في هذا القسم."
+                    : $"وصلت إلى أول {singularLabel} في هذا القسم.";
+            }
+
+            AutomationElement target = peers[nextIndex];
+            target.SetFocus();
+            return ReadElementSummaryWithContext(target);
+        }
+        catch
+        {
+            return $"تعذر التنقل بين {pluralLabel} في هذا القسم.";
+        }
+    }
+
     private static string ReadElementSummaryWithContext(AutomationElement element)
     {
         string text = $"{DescribeRole(element)} {ResolveName(element)}";
@@ -521,6 +573,15 @@ public static class FocusSnapshotReader
 
         return text;
     }
+
+    private static AutomationElement ResolveSettingsScope(AutomationElement element) =>
+        FindAncestor(
+            element,
+            current => current.Current.ControlType == ControlType.Group ||
+                       current.Current.ControlType == ControlType.TabItem ||
+                       current.Current.ControlType == ControlType.Pane)
+        ?? FindAncestor(element, current => current.Current.ControlType == ControlType.Window)
+        ?? element;
 
     internal static bool IsBrowserContext(AutomationElement element)
     {
@@ -950,6 +1011,44 @@ public static class FocusSnapshotReader
         }
 
         return -1;
+    }
+
+    private static int FindClosestElementIndex(AutomationElementCollection elements, AutomationElement reference)
+    {
+        int exactIndex = FindElementIndex(elements, reference);
+        if (exactIndex >= 0)
+        {
+            return exactIndex;
+        }
+
+        Rect referenceBounds = reference.Current.BoundingRectangle;
+        if (!referenceBounds.IsEmpty)
+        {
+            double bestDistance = double.MaxValue;
+            int bestIndex = 0;
+
+            for (int i = 0; i < elements.Count; i++)
+            {
+                Rect candidateBounds = elements[i].Current.BoundingRectangle;
+                if (candidateBounds.IsEmpty)
+                {
+                    continue;
+                }
+
+                double distance = Math.Abs(candidateBounds.Top - referenceBounds.Top) +
+                                  Math.Abs(candidateBounds.Left - referenceBounds.Left);
+
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    bestIndex = i;
+                }
+            }
+
+            return bestIndex;
+        }
+
+        return 0;
     }
 
     private static int CountDescendants(AutomationElement root, ControlType controlType)
