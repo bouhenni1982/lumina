@@ -4,6 +4,74 @@ namespace Lumina.Input;
 
 public static class BrowserNavigator
 {
+    public static string SummarizeCurrentPage()
+    {
+        AutomationElement? current = FocusSnapshotReader.GetFocusedElement();
+        if (current is null)
+        {
+            return "لا توجد صفحة نشطة حاليا.";
+        }
+
+        if (!FocusSnapshotReader.IsBrowserContext(current))
+        {
+            return "العنصر الحالي ليس ضمن سياق ويب معروف.";
+        }
+
+        AutomationElement root = ResolveNavigationRoot(current);
+        List<AutomationElement> elements = EnumerateElements(root).ToList();
+        if (elements.Count == 0)
+        {
+            return "تعذر تحليل الصفحة الحالية.";
+        }
+
+        int headings = 0;
+        int links = 0;
+        int editFields = 0;
+        int buttons = 0;
+        int checkboxes = 0;
+
+        foreach (AutomationElement element in elements)
+        {
+            switch (FocusSnapshotReader.ResolveWebSemanticRole(element))
+            {
+                case "web_heading":
+                    headings++;
+                    break;
+                case "web_link":
+                    links++;
+                    break;
+                case "web_edit":
+                    editFields++;
+                    break;
+                case "web_button":
+                    buttons++;
+                    break;
+                case "web_checkbox":
+                    checkboxes++;
+                    break;
+            }
+        }
+
+        string pageTitle = FocusSnapshotReader.ResolveWindowTitle(current);
+        List<string> parts = new();
+        if (!string.IsNullOrWhiteSpace(pageTitle))
+        {
+            parts.Add($"الصفحة {pageTitle}");
+        }
+
+        parts.Add($"العناوين {headings}");
+        parts.Add($"الروابط {links}");
+        parts.Add($"حقول الإدخال {editFields}");
+        parts.Add($"الأزرار {buttons}");
+
+        if (checkboxes > 0)
+        {
+            parts.Add($"خانات الاختيار {checkboxes}");
+        }
+
+        return string.Join(". ", parts);
+    }
+
     public static string MoveToNextLink() => MoveToNextSemanticRole("web_link", "لا يوجد رابط تال في الصفحة.");
 
     public static string MoveToNextHeading() => MoveToNextSemanticRole("web_heading", "لا يوجد عنوان تال في الصفحة.");

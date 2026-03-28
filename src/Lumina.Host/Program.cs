@@ -19,6 +19,7 @@ Console.WriteLine("Ctrl+Alt+W لقراءة ملخص ويب سريع للعنصر
 Console.WriteLine("Ctrl+Alt+H للانتقال إلى العنوان التالي في الصفحة.");
 Console.WriteLine("Ctrl+Alt+K للانتقال إلى الرابط التالي في الصفحة.");
 Console.WriteLine("Ctrl+Alt+E للانتقال إلى حقل الإدخال التالي في الصفحة.");
+Console.WriteLine("Ctrl+Alt+S لقراءة ملخص الصفحة الحالية.");
 Console.WriteLine("اضغط Ctrl+C للإيقاف.");
 
 var speechService = new SapiSpeechService();
@@ -62,6 +63,11 @@ using var hotKeys = new GlobalHotKeyManager(
     moveToNextEditField: () =>
     {
         string text = BrowserNavigator.MoveToNextEditField();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    summarizeCurrentPage: () =>
+    {
+        string text = BrowserNavigator.SummarizeCurrentPage();
         speechService.Enqueue(new SpeechRequest(text, 100, true));
     });
 

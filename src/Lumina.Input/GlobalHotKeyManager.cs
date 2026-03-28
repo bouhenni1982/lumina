@@ -15,6 +15,7 @@ public sealed class GlobalHotKeyManager : IDisposable
     private const uint VkH = 0x48;
     private const uint VkK = 0x4B;
     private const uint VkE = 0x45;
+    private const uint VkS = 0x53;
 
     private readonly Action _speakCurrentFocus;
     private readonly Action _repeatLastSpeech;
@@ -24,6 +25,7 @@ public sealed class GlobalHotKeyManager : IDisposable
     private readonly Action _moveToNextHeading;
     private readonly Action _moveToNextLink;
     private readonly Action _moveToNextEditField;
+    private readonly Action _summarizeCurrentPage;
     private Thread? _messageLoopThread;
     private volatile bool _running;
     private uint _threadId;
@@ -36,7 +38,8 @@ public sealed class GlobalHotKeyManager : IDisposable
         Action speakWebSummary,
         Action moveToNextHeading,
         Action moveToNextLink,
-        Action moveToNextEditField)
+        Action moveToNextEditField,
+        Action summarizeCurrentPage)
     {
         _speakCurrentFocus = speakCurrentFocus;
         _repeatLastSpeech = repeatLastSpeech;
@@ -46,6 +49,7 @@ public sealed class GlobalHotKeyManager : IDisposable
         _moveToNextHeading = moveToNextHeading;
         _moveToNextLink = moveToNextLink;
         _moveToNextEditField = moveToNextEditField;
+        _summarizeCurrentPage = summarizeCurrentPage;
     }
 
     public void Start()
@@ -85,6 +89,7 @@ public sealed class GlobalHotKeyManager : IDisposable
         RegisterHotKey(IntPtr.Zero, 6, ModControl | ModAlt, VkH);
         RegisterHotKey(IntPtr.Zero, 7, ModControl | ModAlt, VkK);
         RegisterHotKey(IntPtr.Zero, 8, ModControl | ModAlt, VkE);
+        RegisterHotKey(IntPtr.Zero, 9, ModControl | ModAlt, VkS);
 
         try
         {
@@ -106,6 +111,7 @@ public sealed class GlobalHotKeyManager : IDisposable
             UnregisterHotKey(IntPtr.Zero, 6);
             UnregisterHotKey(IntPtr.Zero, 7);
             UnregisterHotKey(IntPtr.Zero, 8);
+            UnregisterHotKey(IntPtr.Zero, 9);
         }
     }
 
@@ -136,6 +142,9 @@ public sealed class GlobalHotKeyManager : IDisposable
                 break;
             case 8:
                 _moveToNextEditField();
+                break;
+            case 9:
+                _summarizeCurrentPage();
                 break;
         }
     }

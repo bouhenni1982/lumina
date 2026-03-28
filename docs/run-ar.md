@@ -39,6 +39,7 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
   - `Ctrl+Alt+H` للانتقال إلى العنوان التالي
   - `Ctrl+Alt+K` للانتقال إلى الرابط التالي
   - `Ctrl+Alt+E` للانتقال إلى حقل الإدخال التالي
+  - `Ctrl+Alt+S` لقراءة ملخص الصفحة الحالية
 
 ## ما الذي لم يكتمل بعد
 
