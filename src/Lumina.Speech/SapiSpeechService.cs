@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Speech.Synthesis;
 using Lumina.Core.Abstractions;
 using Lumina.Core.Models;
+using Lumina.Core.Services;
 
 namespace Lumina.Speech;
 
@@ -20,14 +21,30 @@ public sealed class SapiSpeechService : ISpeechService
 
     public void Enqueue(SpeechRequest request)
     {
-        if (request.Interrupt)
+        try
         {
-            _synthesizer.SpeakAsyncCancelAll();
-        }
+            if (request.Interrupt)
+            {
+                _synthesizer.SpeakAsyncCancelAll();
+            }
 
-        _lastSpokenText = request.Text;
-        _queue.Enqueue(request);
-        Drain();
+            _lastSpokenText = request.Text;
+            _queue.Enqueue(request);
+            Drain();
+        }
+        catch (Exception exception)
+        {
+            ErrorLogger.LogError(
+                source: nameof(SapiSpeechService),
+                message: "فشل إدراج طلب النطق في محرك SAPI.",
+                exception: exception,
+                context: new
+                {
+                    request.Text,
+                    request.Priority,
+                    request.Interrupt
+                });
+        }
     }
 
     public void RepeatLast()
@@ -53,6 +70,13 @@ public sealed class SapiSpeechService : ISpeechService
             {
                 _synthesizer.SpeakAsync(item.Text);
             }
+        }
+        catch (Exception exception)
+        {
+            ErrorLogger.LogError(
+                source: nameof(SapiSpeechService),
+                message: "فشل تصريف طابور النطق.",
+                exception: exception);
         }
         finally
         {

@@ -8,10 +8,32 @@ using Lumina.Speech;
 
 try
 {
+    AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+    {
+        if (args.ExceptionObject is Exception exception)
+        {
+            ErrorLogger.LogError(
+                source: "AppDomain.CurrentDomain.UnhandledException",
+                message: "استثناء غير معالج على مستوى التطبيق.",
+                exception: exception,
+                context: new { args.IsTerminating });
+        }
+    };
+
+    TaskScheduler.UnobservedTaskException += (_, args) =>
+    {
+        ErrorLogger.LogError(
+            source: "TaskScheduler.UnobservedTaskException",
+            message: "استثناء مهمة غير مراقب.",
+            exception: args.Exception);
+        args.SetObserved();
+    };
+
     Console.OutputEncoding = System.Text.Encoding.UTF8;
     Console.WriteLine("Lumina prototype started.");
     Console.WriteLine("يتابع تغيّر التركيز focus في Windows وينطق العنصر الحالي.");
     Console.WriteLine("يسجل Inspector الأحداث في inspector/focus-events.jsonl.");
+    Console.WriteLine($"يسجل الأخطاء في {ErrorLogger.GetLogDirectory()}.");
     Console.WriteLine("ويعرض نافذة Inspector حيّة لآخر الأحداث.");
     Console.WriteLine("Insert+F لقراءة العنصر الحالي.");
     Console.WriteLine("Insert+Tab لقراءة معلومات موسعة عن العنصر الحالي.");
@@ -444,6 +466,10 @@ try
 }
 catch (Exception exception)
 {
+    ErrorLogger.LogError(
+        source: "Program.Main",
+        message: "فشل تشغيل Lumina.",
+        exception: exception);
     Console.Error.WriteLine("Lumina failed to start.");
     Console.Error.WriteLine(exception);
     Environment.ExitCode = 1;

@@ -30,16 +30,35 @@ public sealed class LuminaRuntime : IDisposable
 
     private void OnEventRaised(object? sender, Models.ScreenEvent screenEvent)
     {
-        if (!_eventFilter.ShouldProcess(screenEvent))
+        try
         {
-            return;
-        }
+            if (!_eventFilter.ShouldProcess(screenEvent))
+            {
+                return;
+            }
 
-        Models.SpeechRequest speech = _scriptEngine.Handle(screenEvent);
-        _inspectorSink?.Record(screenEvent, speech);
-        if (!string.IsNullOrWhiteSpace(speech.Text))
+            Models.SpeechRequest speech = _scriptEngine.Handle(screenEvent);
+            _inspectorSink?.Record(screenEvent, speech);
+            if (!string.IsNullOrWhiteSpace(speech.Text))
+            {
+                _speechService.Enqueue(speech);
+            }
+        }
+        catch (Exception exception)
         {
-            _speechService.Enqueue(speech);
+            ErrorLogger.LogError(
+                source: nameof(LuminaRuntime),
+                message: "حدث خطأ أثناء معالجة حدث إمكانية الوصول.",
+                exception: exception,
+                context: new
+                {
+                    screenEvent.EventType,
+                    NodeName = screenEvent.Node.Name,
+                    NodeRole = screenEvent.Node.Role,
+                    screenEvent.Node.SemanticRole,
+                    screenEvent.Node.ContextKind,
+                    screenEvent.Node.SourceProcess
+                });
         }
     }
 

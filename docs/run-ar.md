@@ -28,6 +28,7 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
 - تنطق الناتج
 - تسجل Inspector في `inspector/focus-events.jsonl`
 - تعرض نافذة Inspector حيّة فيها آخر أحداث focus
+- تسجل الأخطاء في `logs/lumina.log` و`logs/errors.jsonl`
 - ترصد التطبيقات المرشحة لـ `IAccessible2` مثل Firefox وChromium وElectron
 - تطبّع عناصر الويب إلى `semantic roles` أوضح داخل المتصفح
 - تدعم keyboard hook بأوامر قارئ الشاشة:

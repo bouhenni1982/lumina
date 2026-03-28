@@ -1,5 +1,6 @@
 using Lumina.Core.Abstractions;
 using Lumina.Core.Models;
+using Lumina.Core.Services;
 using NLua;
 
 namespace Lumina.Scripting.Rules;
@@ -18,25 +19,44 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
 
     public SpeechRequest Handle(ScreenEvent screenEvent)
     {
-        Lua lua = GetOrCreateState(screenEvent.Node.SourceProcess);
-
-        LuaTable eventTable = BuildEventTable(lua, screenEvent);
-        object[]? results = lua.GetFunction("on_focus_changed")?.Call(eventTable);
-
-        if (results is not null &&
-            results.Length > 0 &&
-            results[0] is LuaTable table)
+        try
         {
-            string action = table["action"]?.ToString() ?? "none";
-            string text = table["text"]?.ToString() ?? string.Empty;
+            Lua lua = GetOrCreateState(screenEvent.Node.SourceProcess);
 
-            return new SpeechRequest(
-                Text: action == "speak" ? text : string.Empty,
-                Priority: screenEvent.Priority,
-                Interrupt: true);
+            LuaTable eventTable = BuildEventTable(lua, screenEvent);
+            object[]? results = lua.GetFunction("on_focus_changed")?.Call(eventTable);
+
+            if (results is not null &&
+                results.Length > 0 &&
+                results[0] is LuaTable table)
+            {
+                string action = table["action"]?.ToString() ?? "none";
+                string text = table["text"]?.ToString() ?? string.Empty;
+
+                return new SpeechRequest(
+                    Text: action == "speak" ? text : string.Empty,
+                    Priority: screenEvent.Priority,
+                    Interrupt: true);
+            }
+
+            return BuildFallbackSpeech(screenEvent);
         }
-
-        return BuildFallbackSpeech(screenEvent);
+        catch (Exception exception)
+        {
+            ErrorLogger.LogError(
+                source: nameof(SimpleLuaStyleScriptEngine),
+                message: "فشل تنفيذ سكربت Lua، وتم استخدام النطق الاحتياطي.",
+                exception: exception,
+                context: new
+                {
+                    screenEvent.EventType,
+                    Process = screenEvent.Node.SourceProcess,
+                    screenEvent.Node.Name,
+                    screenEvent.Node.Role,
+                    screenEvent.Node.SemanticRole
+                });
+            return BuildFallbackSpeech(screenEvent);
+        }
     }
 
     public void Dispose()
