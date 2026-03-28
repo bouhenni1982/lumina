@@ -22,6 +22,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkF = 0x46;
     private const uint VkL = 0x4C;
     private const uint VkI = 0x49;
+    private const uint VkReturn = 0x0D;
     private const uint VkT = 0x54;
     private const uint VkW = 0x57;
     private const uint VkS = 0x53;
@@ -52,10 +53,16 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _refreshVirtualBuffer;
     private readonly Action _summarizeVirtualBuffer;
     private readonly Action _syncVirtualBufferToFocus;
+    private readonly Action<bool> _announceTextReviewMode;
+    private readonly Action _readCurrentLine;
     private readonly Action _readPreviousLine;
     private readonly Action _readNextLine;
     private readonly Action _readPreviousCharacter;
     private readonly Action _readNextCharacter;
+    private readonly Action _readPreviousWord;
+    private readonly Action _readNextWord;
+    private readonly Action _readPreviousParagraph;
+    private readonly Action _readNextParagraph;
 
     private readonly HookProc _hookProc;
     private Thread? _messageLoopThread;
@@ -63,6 +70,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private uint _threadId;
     private volatile bool _running;
     private bool _insertDown;
+    private bool _textReviewMode;
 
     public KeyboardCommandManager(
         Action speakCurrentFocus,
@@ -80,10 +88,16 @@ public sealed class KeyboardCommandManager : IDisposable
         Action refreshVirtualBuffer,
         Action summarizeVirtualBuffer,
         Action syncVirtualBufferToFocus,
+        Action<bool> announceTextReviewMode,
+        Action readCurrentLine,
         Action readPreviousLine,
         Action readNextLine,
         Action readPreviousCharacter,
-        Action readNextCharacter)
+        Action readNextCharacter,
+        Action readPreviousWord,
+        Action readNextWord,
+        Action readPreviousParagraph,
+        Action readNextParagraph)
     {
         _speakCurrentFocus = speakCurrentFocus;
         _repeatLastSpeech = repeatLastSpeech;
@@ -100,10 +114,16 @@ public sealed class KeyboardCommandManager : IDisposable
         _refreshVirtualBuffer = refreshVirtualBuffer;
         _summarizeVirtualBuffer = summarizeVirtualBuffer;
         _syncVirtualBufferToFocus = syncVirtualBufferToFocus;
+        _announceTextReviewMode = announceTextReviewMode;
+        _readCurrentLine = readCurrentLine;
         _readPreviousLine = readPreviousLine;
         _readNextLine = readNextLine;
         _readPreviousCharacter = readPreviousCharacter;
         _readNextCharacter = readNextCharacter;
+        _readPreviousWord = readPreviousWord;
+        _readNextWord = readNextWord;
+        _readPreviousParagraph = readPreviousParagraph;
+        _readNextParagraph = readNextParagraph;
         _hookProc = HookCallback;
     }
 
@@ -193,6 +213,14 @@ public sealed class KeyboardCommandManager : IDisposable
 
         if (_insertDown && !controlDown && !altDown && !winDown)
         {
+            if (vkCode == VkReturn)
+            {
+                _textReviewMode = !_textReviewMode;
+                bool enabled = _textReviewMode;
+                ThreadPool.QueueUserWorkItem(_ => _announceTextReviewMode(enabled));
+                return (IntPtr)1;
+            }
+
             if (TryHandleScreenReaderCommand(vkCode))
             {
                 return (IntPtr)1;
@@ -203,9 +231,21 @@ public sealed class KeyboardCommandManager : IDisposable
             !controlDown &&
             !altDown &&
             !winDown &&
+            !_textReviewMode &&
             IsBrowserNavigationContext())
         {
             if (TryHandleBrowserNavigation(vkCode, shiftDown))
+            {
+                return (IntPtr)1;
+            }
+        }
+
+        if (!_insertDown &&
+            !altDown &&
+            !winDown &&
+            _textReviewMode)
+        {
+            if (TryHandleTextReview(vkCode, controlDown))
             {
                 return (IntPtr)1;
             }
@@ -227,10 +267,33 @@ public sealed class KeyboardCommandManager : IDisposable
             VkR => _refreshVirtualBuffer,
             VkB => _summarizeVirtualBuffer,
             VkY => _syncVirtualBufferToFocus,
-            VkUp => _readPreviousLine,
-            VkDown => _readNextLine,
-            VkLeft => _readPreviousCharacter,
-            VkRight => _readNextCharacter,
+            VkUp => _readCurrentLine,
+            VkLeft => _readPreviousWord,
+            VkRight => _readNextWord,
+            _ => null
+        };
+
+        if (action is null)
+        {
+            return false;
+        }
+
+        ThreadPool.QueueUserWorkItem(_ => action());
+        return true;
+    }
+
+    private bool TryHandleTextReview(uint vkCode, bool controlDown)
+    {
+        Action? action = (vkCode, controlDown) switch
+        {
+            (VkLeft, false) => _readPreviousCharacter,
+            (VkRight, false) => _readNextCharacter,
+            (VkUp, false) => _readPreviousLine,
+            (VkDown, false) => _readNextLine,
+            (VkLeft, true) => _readPreviousWord,
+            (VkRight, true) => _readNextWord,
+            (VkUp, true) => _readPreviousParagraph,
+            (VkDown, true) => _readNextParagraph,
             _ => null
         };
 

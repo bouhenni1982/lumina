@@ -10,6 +10,8 @@ public static class TextReviewCursor
     private static TextPatternRange? _lineRange;
     private static TextPatternRange? _characterRange;
 
+    public static string ReadCurrentLine() => ReadCurrent(TextUnit.Line, "السطر", "العنصر الحالي لا يدعم مراجعة النص.");
+
     public static string ReadPreviousLine() => ReadLine(-1, "لا يوجد سطر سابق.", "العنصر الحالي لا يدعم مراجعة النص.");
 
     public static string ReadNextLine() => ReadLine(1, "لا يوجد سطر لاحق.", "العنصر الحالي لا يدعم مراجعة النص.");
@@ -17,6 +19,42 @@ public static class TextReviewCursor
     public static string ReadPreviousCharacter() => ReadCharacter(-1, "لا يوجد حرف سابق.", "العنصر الحالي لا يدعم مراجعة الأحرف.");
 
     public static string ReadNextCharacter() => ReadCharacter(1, "لا يوجد حرف لاحق.", "العنصر الحالي لا يدعم مراجعة الأحرف.");
+
+    public static string ReadPreviousWord() => ReadUnit(-1, TextUnit.Word, "لا توجد كلمة سابقة.", "العنصر الحالي لا يدعم مراجعة الكلمات.", "الكلمة");
+
+    public static string ReadNextWord() => ReadUnit(1, TextUnit.Word, "لا توجد كلمة لاحقة.", "العنصر الحالي لا يدعم مراجعة الكلمات.", "الكلمة");
+
+    public static string ReadPreviousParagraph() => ReadUnit(-1, TextUnit.Paragraph, "لا توجد فقرة سابقة.", "العنصر الحالي لا يدعم مراجعة الفقرات.", "الفقرة");
+
+    public static string ReadNextParagraph() => ReadUnit(1, TextUnit.Paragraph, "لا توجد فقرة لاحقة.", "العنصر الحالي لا يدعم مراجعة الفقرات.", "الفقرة");
+
+    private static string ReadCurrent(TextUnit unit, string label, string unsupportedMessage)
+    {
+        if (!TryGetTextPattern(out AutomationElement? element, out TextPattern? pattern))
+        {
+            return unsupportedMessage;
+        }
+
+        lock (Sync)
+        {
+            EnsureRanges(pattern, element);
+
+            TextPatternRange? range = unit switch
+            {
+                TextUnit.Line => _lineRange,
+                TextUnit.Character => _characterRange,
+                _ => null
+            };
+
+            if (range is null)
+            {
+                return unsupportedMessage;
+            }
+
+            string text = Normalize(range.GetText(-1));
+            return string.IsNullOrWhiteSpace(text) ? unsupportedMessage : $"{label} {text}";
+        }
+    }
 
     private static string ReadLine(int delta, string boundaryMessage, string unsupportedMessage)
     {
@@ -83,6 +121,36 @@ public static class TextReviewCursor
             }
 
             return $"الحرف {DescribeCharacter(text)}";
+        }
+    }
+
+    private static string ReadUnit(int delta, TextUnit unit, string boundaryMessage, string unsupportedMessage, string label)
+    {
+        if (!TryGetTextPattern(out AutomationElement? element, out TextPattern? pattern))
+        {
+            return unsupportedMessage;
+        }
+
+        lock (Sync)
+        {
+            EnsureRanges(pattern, element);
+
+            TextPatternRange range = _characterRange?.Clone() ?? GetAnchorRange(pattern);
+            int moved = range.Move(unit, delta);
+            if (moved == 0)
+            {
+                return boundaryMessage;
+            }
+
+            range.ExpandToEnclosingUnit(unit);
+            string text = Normalize(range.GetText(-1));
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return boundaryMessage;
+            }
+
+            _characterRange = range.Clone();
+            return $"{label} {text}";
         }
     }
 

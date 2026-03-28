@@ -20,8 +20,10 @@ Console.WriteLine("Insert+S لقراءة ملخص الصفحة الحالية.")
 Console.WriteLine("Insert+R لتحديث المخزن الظاهري للصفحة.");
 Console.WriteLine("Insert+B لملخص حالة المخزن الظاهري.");
 Console.WriteLine("Insert+Y لمزامنة المخزن الظاهري مع العنصر الحالي.");
-Console.WriteLine("Insert+Up/Down لقراءة السطر السابق أو اللاحق.");
-Console.WriteLine("Insert+Left/Right لقراءة الحرف السابق أو اللاحق.");
+Console.WriteLine("Insert+Enter لتفعيل أو تعطيل وضع المراجعة النصية.");
+Console.WriteLine("Insert+Up لقراءة السطر الحالي.");
+Console.WriteLine("Insert+Left/Right للكلمة السابقة أو اللاحقة.");
+Console.WriteLine("داخل وضع المراجعة: الأسهم للحرف والسطر وCtrl+الأسهم للكلمة والفقرة.");
 Console.WriteLine("داخل المتصفح: H/K/E للعنصر التالي وShift+H/K/E للعنصر السابق.");
 Console.WriteLine("اضغط Ctrl+C للإيقاف.");
 
@@ -103,6 +105,18 @@ using var hotKeys = new KeyboardCommandManager(
         string text = BrowserVirtualBuffer.SyncToFocusedElement();
         speechService.Enqueue(new SpeechRequest(text, 100, true));
     },
+    announceTextReviewMode: enabled =>
+    {
+        string text = enabled
+            ? "تم تفعيل وضع المراجعة النصية"
+            : "تم تعطيل وضع المراجعة النصية";
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    readCurrentLine: () =>
+    {
+        string text = TextReviewCursor.ReadCurrentLine();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
     readPreviousLine: () =>
     {
         string text = TextReviewCursor.ReadPreviousLine();
@@ -121,6 +135,26 @@ using var hotKeys = new KeyboardCommandManager(
     readNextCharacter: () =>
     {
         string text = TextReviewCursor.ReadNextCharacter();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    readPreviousWord: () =>
+    {
+        string text = TextReviewCursor.ReadPreviousWord();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    readNextWord: () =>
+    {
+        string text = TextReviewCursor.ReadNextWord();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    readPreviousParagraph: () =>
+    {
+        string text = TextReviewCursor.ReadPreviousParagraph();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    readNextParagraph: () =>
+    {
+        string text = TextReviewCursor.ReadNextParagraph();
         speechService.Enqueue(new SpeechRequest(text, 100, true));
     });
 
