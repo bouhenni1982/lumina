@@ -24,6 +24,8 @@ try
     Console.WriteLine("Insert+W لقراءة ملخص ويب سريع للعنصر الحالي.");
     Console.WriteLine("Insert+M لقراءة مسار القائمة الحالية.");
     Console.WriteLine("Insert+G لقراءة سياق الإعدادات الحالي.");
+    Console.WriteLine("Insert+N للانتقال إلى العنصر التالي داخل القائمة أو القسم الحالي.");
+    Console.WriteLine("Insert+P للانتقال إلى العنصر السابق داخل القائمة أو القسم الحالي.");
     Console.WriteLine("Insert+S لقراءة ملخص الصفحة الحالية.");
     Console.WriteLine("Insert+R لتحديث المخزن الظاهري للصفحة.");
     Console.WriteLine("Insert+B لملخص حالة المخزن الظاهري.");
@@ -93,6 +95,16 @@ try
         speakSettingsContext: () =>
         {
             string text = FocusSnapshotReader.ReadCurrentSettingsContext();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextContextItem: () =>
+        {
+            string text = FocusSnapshotReader.MoveToNextContextItem();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousContextItem: () =>
+        {
+            string text = FocusSnapshotReader.MoveToPreviousContextItem();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         moveToNextHeading: () =>

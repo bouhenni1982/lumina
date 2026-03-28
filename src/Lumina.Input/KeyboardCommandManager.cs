@@ -25,6 +25,8 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkL = 0x4C;
     private const uint VkI = 0x49;
     private const uint VkM = 0x4D;
+    private const uint VkN = 0x4E;
+    private const uint VkP = 0x50;
     private const uint VkReturn = 0x0D;
     private const uint VkTab = 0x09;
     private const uint VkT = 0x54;
@@ -57,6 +59,8 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _speakWebSummary;
     private readonly Action _speakMenuContext;
     private readonly Action _speakSettingsContext;
+    private readonly Action _moveToNextContextItem;
+    private readonly Action _moveToPreviousContextItem;
     private readonly Action _moveToNextHeading;
     private readonly Action _moveToPreviousHeading;
     private readonly Action _moveToNextLink;
@@ -106,6 +110,8 @@ public sealed class KeyboardCommandManager : IDisposable
         Action speakWebSummary,
         Action speakMenuContext,
         Action speakSettingsContext,
+        Action moveToNextContextItem,
+        Action moveToPreviousContextItem,
         Action moveToNextHeading,
         Action moveToPreviousHeading,
         Action moveToNextLink,
@@ -143,6 +149,8 @@ public sealed class KeyboardCommandManager : IDisposable
         _speakWebSummary = speakWebSummary;
         _speakMenuContext = speakMenuContext;
         _speakSettingsContext = speakSettingsContext;
+        _moveToNextContextItem = moveToNextContextItem;
+        _moveToPreviousContextItem = moveToPreviousContextItem;
         _moveToNextHeading = moveToNextHeading;
         _moveToPreviousHeading = moveToPreviousHeading;
         _moveToNextLink = moveToNextLink;
@@ -336,6 +344,8 @@ public sealed class KeyboardCommandManager : IDisposable
             VkW => _speakWebSummary,
             VkM => _speakMenuContext,
             VkG => _speakSettingsContext,
+            VkN => _moveToNextContextItem,
+            VkP => _moveToPreviousContextItem,
             VkS => _summarizeCurrentPage,
             VkR => _refreshVirtualBuffer,
             VkB => _summarizeVirtualBuffer,

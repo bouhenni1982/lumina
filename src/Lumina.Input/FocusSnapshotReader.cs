@@ -349,6 +349,10 @@ public static class FocusSnapshotReader
         return BuildSettingsContextSummary(element);
     }
 
+    public static string MoveToNextContextItem() => MoveToContextItem(moveNext: true);
+
+    public static string MoveToPreviousContextItem() => MoveToContextItem(moveNext: false);
+
     internal static string BuildWebSummary(AutomationElement element)
     {
         string semanticRole = ResolveWebSemanticRole(element);
@@ -375,6 +379,144 @@ public static class FocusSnapshotReader
         if (!string.IsNullOrWhiteSpace(pageTitle))
         {
             text = $"{text}. الصفحة {pageTitle}";
+        }
+
+        return text;
+    }
+
+    private static string MoveToContextItem(bool moveNext)
+    {
+        AutomationElement? element = GetFocusedElement();
+        if (element is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
+        if (IsMenuLikeContext(element))
+        {
+            return MoveToMenuItem(element, moveNext);
+        }
+
+        if (IsSettingsLikeContext(element))
+        {
+            return MoveToSettingsPeer(element, moveNext);
+        }
+
+        return "العنصر الحالي لا يدعم التنقل السياقي.";
+    }
+
+    private static string MoveToMenuItem(AutomationElement element, bool moveNext)
+    {
+        AutomationElement? parent = TreeWalker.ControlViewWalker.GetParent(element);
+        if (parent is null)
+        {
+            return "تعذر تحديد حاوية القائمة الحالية.";
+        }
+
+        try
+        {
+            AutomationElementCollection siblings = parent.FindAll(
+                TreeScope.Children,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.MenuItem));
+
+            if (siblings.Count == 0)
+            {
+                return "لا توجد عناصر قائمة مجاورة.";
+            }
+
+            int currentIndex = FindElementIndex(siblings, element);
+            if (currentIndex < 0)
+            {
+                return "تعذر تحديد موضع عنصر القائمة الحالي.";
+            }
+
+            int nextIndex = moveNext ? currentIndex + 1 : currentIndex - 1;
+            if (nextIndex < 0 || nextIndex >= siblings.Count)
+            {
+                return moveNext
+                    ? "وصلت إلى آخر عنصر في هذه القائمة."
+                    : "وصلت إلى أول عنصر في هذه القائمة.";
+            }
+
+            AutomationElement target = siblings[nextIndex];
+            target.SetFocus();
+            return ReadElementSummaryWithContext(target);
+        }
+        catch
+        {
+            return "تعذر التنقل داخل القائمة الحالية.";
+        }
+    }
+
+    private static string MoveToSettingsPeer(AutomationElement element, bool moveNext)
+    {
+        AutomationElement scope = FindAncestor(
+                element,
+                current => current.Current.ControlType == ControlType.Group ||
+                           current.Current.ControlType == ControlType.TabItem ||
+                           current.Current.ControlType == ControlType.Pane)
+            ?? FindAncestor(element, current => current.Current.ControlType == ControlType.Window)
+            ?? element;
+
+        try
+        {
+            AutomationElementCollection peers = scope.FindAll(
+                TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, element.Current.ControlType));
+
+            if (peers.Count == 0)
+            {
+                return "لا توجد عناصر مشابهة في هذا القسم.";
+            }
+
+            int currentIndex = FindElementIndex(peers, element);
+            if (currentIndex < 0)
+            {
+                return "تعذر تحديد موضع العنصر الحالي داخل هذا القسم.";
+            }
+
+            int nextIndex = moveNext ? currentIndex + 1 : currentIndex - 1;
+            if (nextIndex < 0 || nextIndex >= peers.Count)
+            {
+                string typeName = DescribeRole(element);
+                return moveNext
+                    ? $"وصلت إلى آخر {typeName} في هذا القسم."
+                    : $"وصلت إلى أول {typeName} في هذا القسم.";
+            }
+
+            AutomationElement target = peers[nextIndex];
+            target.SetFocus();
+            return ReadElementSummaryWithContext(target);
+        }
+        catch
+        {
+            return "تعذر التنقل داخل قسم الإعدادات الحالي.";
+        }
+    }
+
+    private static string ReadElementSummaryWithContext(AutomationElement element)
+    {
+        string text = $"{DescribeRole(element)} {ResolveName(element)}";
+        string? state = ResolveStateSummary(element);
+        string? shortcut = ResolveShortcutKey(element);
+
+        if (!string.IsNullOrWhiteSpace(state))
+        {
+            text = $"{text}. {state}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(shortcut))
+        {
+            text = $"{text}. اختصار {shortcut}";
+        }
+
+        if (IsMenuLikeContext(element))
+        {
+            text = $"{text}. {BuildMenuContextSummary(element)}";
+        }
+        else if (IsSettingsLikeContext(element))
+        {
+            text = $"{text}. {BuildSettingsContextSummary(element)}";
         }
 
         return text;
@@ -795,6 +937,19 @@ public static class FocusSnapshotReader
         }
 
         return null;
+    }
+
+    private static int FindElementIndex(AutomationElementCollection elements, AutomationElement target)
+    {
+        for (int i = 0; i < elements.Count; i++)
+        {
+            if (elements[i].Equals(target))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private static int CountDescendants(AutomationElement root, ControlType controlType)
