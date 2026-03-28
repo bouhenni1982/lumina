@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using System.Windows.Automation;
 using System.Windows.Automation.Text;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Lumina.Input;
 
@@ -318,7 +319,9 @@ public static class TextReviewCursor
         }
     }
 
-    private static bool TryGetTextPattern(out AutomationElement? element, out TextPattern? pattern)
+    private static bool TryGetTextPattern(
+        [NotNullWhen(true)] out AutomationElement? element,
+        [NotNullWhen(true)] out TextPattern? pattern)
     {
         element = FocusSnapshotReader.GetFocusedElement();
         pattern = null;

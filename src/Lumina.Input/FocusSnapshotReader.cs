@@ -691,7 +691,9 @@ public static class FocusSnapshotReader
         int childCount = 0;
         try
         {
-            childCount = candidate.FindAll(TreeScope.Children, Condition.TrueCondition).Count;
+            childCount = candidate.FindAll(
+                TreeScope.Children,
+                System.Windows.Automation.Condition.TrueCondition).Count;
         }
         catch
         {
