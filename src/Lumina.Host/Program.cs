@@ -46,6 +46,7 @@ try
     Console.WriteLine("Insert+PageUp/PageDown للجملة السابقة أو اللاحقة.");
     Console.WriteLine("داخل وضع المراجعة: الأسهم للحرف والسطر وCtrl+الأسهم للكلمة والفقرة وHome/End لبداية ونهاية السطر.");
     Console.WriteLine("داخل المتصفح: H/K/E/B/X/D/T للتنقل بين العناوين والروابط والحقول والأزرار وخانات الاختيار والمعالم والجداول.");
+    Console.WriteLine("Insert+Space داخل المتصفح للتبديل بين وضع التصفح ووضع التركيز. وEscape للرجوع إلى وضع التصفح.");
     Console.WriteLine("اضغط Ctrl+C للإيقاف.");
 
     var speechService = new SapiSpeechService();
@@ -366,6 +367,10 @@ try
         sayAllFromReviewCursor: () =>
         {
             string text = TextReviewCursor.SayAllFromReviewCursor();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        announceBrowserMode: text =>
+        {
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         });
 

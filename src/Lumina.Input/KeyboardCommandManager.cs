@@ -52,6 +52,8 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkEnd = 0x23;
     private const uint VkPageUp = 0x21;
     private const uint VkPageDown = 0x22;
+    private const uint VkSpace = 0x20;
+    private const uint VkEscape = 0x1B;
 
     private const uint VkH = 0x48;
     private const uint VkK = 0x4B;
@@ -120,6 +122,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _moveToStartOfLine;
     private readonly Action _moveToEndOfLine;
     private readonly Action _sayAllFromReviewCursor;
+    private readonly Action<string> _announceBrowserMode;
 
     private readonly HookProc _hookProc;
     private Thread? _messageLoopThread;
@@ -128,6 +131,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private volatile bool _running;
     private bool _insertDown;
     private bool _textReviewMode;
+    private bool _browserBrowseMode = true;
     private DateTime _lastElementDetailsCommandUtc = DateTime.MinValue;
 
     private static readonly TimeSpan AdvancedDetailsRepeatWindow = TimeSpan.FromMilliseconds(900);
@@ -195,7 +199,8 @@ public sealed class KeyboardCommandManager : IDisposable
         Action readNextSentence,
         Action moveToStartOfLine,
         Action moveToEndOfLine,
-        Action sayAllFromReviewCursor)
+        Action sayAllFromReviewCursor,
+        Action<string> announceBrowserMode)
     {
         _speakCurrentFocus = speakCurrentFocus;
         _repeatLastSpeech = repeatLastSpeech;
@@ -260,6 +265,7 @@ public sealed class KeyboardCommandManager : IDisposable
         _moveToStartOfLine = moveToStartOfLine;
         _moveToEndOfLine = moveToEndOfLine;
         _sayAllFromReviewCursor = sayAllFromReviewCursor;
+        _announceBrowserMode = announceBrowserMode;
         _hookProc = HookCallback;
     }
 
@@ -367,6 +373,16 @@ public sealed class KeyboardCommandManager : IDisposable
 
         if (_insertDown && !controlDown && !altDown && !winDown)
         {
+            if (vkCode == VkSpace && IsBrowserContext())
+            {
+                _browserBrowseMode = !_browserBrowseMode;
+                string modeText = _browserBrowseMode
+                    ? "تم تفعيل وضع التصفح."
+                    : "تم تفعيل وضع التركيز.";
+                ThreadPool.QueueUserWorkItem(_ => _announceBrowserMode(modeText));
+                return (IntPtr)1;
+            }
+
             if (vkCode == VkReturn)
             {
                 _textReviewMode = !_textReviewMode;
@@ -392,6 +408,19 @@ public sealed class KeyboardCommandManager : IDisposable
             {
                 return (IntPtr)1;
             }
+        }
+
+        if (!_insertDown &&
+            !controlDown &&
+            !altDown &&
+            !winDown &&
+            vkCode == VkEscape &&
+            IsBrowserContext() &&
+            !_browserBrowseMode)
+        {
+            _browserBrowseMode = true;
+            ThreadPool.QueueUserWorkItem(_ => _announceBrowserMode("تم الرجوع إلى وضع التصفح."));
+            return (IntPtr)1;
         }
 
         if (!_insertDown &&
@@ -533,8 +562,13 @@ public sealed class KeyboardCommandManager : IDisposable
         return true;
     }
 
-    private static bool IsBrowserNavigationContext()
+    private bool IsBrowserNavigationContext()
     {
+        if (!_browserBrowseMode)
+        {
+            return false;
+        }
+
         AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
         if (focused is null || !FocusSnapshotReader.IsBrowserContext(focused))
         {
@@ -542,6 +576,17 @@ public sealed class KeyboardCommandManager : IDisposable
         }
 
         return FocusSnapshotReader.ResolveWebSemanticRole(focused) != "web_edit";
+    }
+
+    private bool IsBrowserContext()
+    {
+        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+        if (focused is null)
+        {
+            return false;
+        }
+
+        return FocusSnapshotReader.IsBrowserContext(focused);
     }
 
     private static bool IsKeyCurrentlyDown(uint virtualKey) => (GetAsyncKeyState((int)virtualKey) & 0x8000) != 0;
