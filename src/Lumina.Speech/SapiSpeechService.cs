@@ -10,6 +10,7 @@ public sealed class SapiSpeechService : ISpeechService
     private readonly SpeechSynthesizer _synthesizer = new();
     private readonly ConcurrentQueue<SpeechRequest> _queue = new();
     private int _isDraining;
+    private string? _lastSpokenText;
 
     public SapiSpeechService()
     {
@@ -24,8 +25,19 @@ public sealed class SapiSpeechService : ISpeechService
             _synthesizer.SpeakAsyncCancelAll();
         }
 
+        _lastSpokenText = request.Text;
         _queue.Enqueue(request);
         Drain();
+    }
+
+    public void RepeatLast()
+    {
+        if (string.IsNullOrWhiteSpace(_lastSpokenText))
+        {
+            return;
+        }
+
+        Enqueue(new SpeechRequest(_lastSpokenText, 100, true));
     }
 
     private void Drain()

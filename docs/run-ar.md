@@ -27,6 +27,10 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
 - تمرر الحدث إلى طبقة السكربت
 - تنطق الناتج
 - تسجل Inspector في `inspector/focus-events.jsonl`
+- تدعم hotkeys:
+  - `Ctrl+Alt+F` لقراءة العنصر الحالي
+  - `Ctrl+Alt+L` لإعادة آخر نطق
+  - `Ctrl+Alt+I` لتفعيل أو تعطيل Inspector
 
 ## ما الذي لم يكتمل بعد
 

@@ -9,6 +9,7 @@ public sealed class JsonInspectorSink : IInspectorSink
     private readonly string _logDirectory;
     private readonly string _logFilePath;
     private readonly object _sync = new();
+    public bool IsEnabled { get; private set; } = true;
 
     public JsonInspectorSink()
     {
@@ -19,6 +20,11 @@ public sealed class JsonInspectorSink : IInspectorSink
 
     public void Record(ScreenEvent screenEvent, SpeechRequest speechRequest)
     {
+        if (!IsEnabled)
+        {
+            return;
+        }
+
         var payload = new
         {
             timestampUtc = DateTimeOffset.UtcNow,
@@ -48,6 +54,12 @@ public sealed class JsonInspectorSink : IInspectorSink
         }
 
         Console.WriteLine($"[Inspector] {screenEvent.Node.SourceProcess} | {screenEvent.Node.Role} | {screenEvent.Node.Name}");
+    }
+
+    public void Toggle()
+    {
+        IsEnabled = !IsEnabled;
+        Console.WriteLine(IsEnabled ? "[Inspector] enabled" : "[Inspector] disabled");
     }
 
     public void Dispose()

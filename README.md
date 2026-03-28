@@ -13,6 +13,7 @@ Lumina هو مشروع قارئ شاشة حديث مخصص لنظام Windows 10
 - دعم `App Profiles` عبر ملفات Lua حسب اسم العملية مثل `notepad` و`explorer`
 - Inspector تشخيصي يسجل أحداث focus بصيغة JSON Lines
 - fallback فعلي إلى `MSAA` عند نقص بيانات `UIA`
+- hotkeys عالمية لقراءة العنصر الحالي وإعادة آخر نطق وتبديل Inspector
 
 الوثيقة الأساسية بالعربية موجودة هنا:
 
