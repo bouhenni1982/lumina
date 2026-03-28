@@ -413,6 +413,17 @@ public sealed class UiaAccessibilityService : IAccessibilityService
             }
         }
 
+        if (IsLikelyBrowserContext(element))
+        {
+            foreach (string browserState in ResolveBrowserSpecificStates(element))
+            {
+                if (!states.Contains(browserState, StringComparer.Ordinal))
+                {
+                    states.Add(browserState);
+                }
+            }
+        }
+
         string itemStatus = NormalizeMetadataValue(element.Current.ItemStatus);
         if (!string.IsNullOrWhiteSpace(itemStatus))
         {
@@ -430,6 +441,56 @@ public sealed class UiaAccessibilityService : IAccessibilityService
         }
 
         return string.Join("، ", states.Distinct(StringComparer.Ordinal));
+    }
+
+    private static IEnumerable<string> ResolveBrowserSpecificStates(AutomationElement element)
+    {
+        List<string> states = [];
+        string helpText = (element.Current.HelpText ?? string.Empty).ToLowerInvariant();
+        string itemStatus = (element.Current.ItemStatus ?? string.Empty).ToLowerInvariant();
+        string itemType = (element.Current.ItemType ?? string.Empty).ToLowerInvariant();
+        string localizedRole = (element.Current.LocalizedControlType ?? string.Empty).ToLowerInvariant();
+
+        if (ContainsAny(helpText, itemStatus, itemType, "required", "obligatoire", "مطلوب"))
+        {
+            states.Add("مطلوب");
+        }
+
+        if (ContainsAny(helpText, itemStatus, itemType, "invalid", "error", "erreur", "غير صالح", "خطأ"))
+        {
+            states.Add("غير صالح");
+        }
+
+        if (ContainsAny(helpText, itemStatus, localizedRole, "current", "actuel", "الحالي"))
+        {
+            states.Add("حالي");
+        }
+
+        if (ContainsAny(helpText, itemStatus, "visited"))
+        {
+            states.Add("تمت زيارته");
+        }
+
+        if (ContainsAny(helpText, itemStatus, "busy", "loading", "chargement", "جار"))
+        {
+            states.Add("قيد التحديث");
+        }
+
+        return states;
+    }
+
+    private static bool ContainsAny(string first, string second, params string[] needles)
+    {
+        foreach (string needle in needles)
+        {
+            if ((!string.IsNullOrWhiteSpace(first) && first.Contains(needle, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(second) && second.Contains(needle, StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string? NormalizeMetadataValue(string? value) =>
