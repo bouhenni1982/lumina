@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
 
@@ -192,11 +193,29 @@ public sealed class KeyboardCommandManager : IDisposable
     {
         _threadId = GetCurrentThreadId();
         _hookHandle = SetWindowsHookEx(WhKeyboardLl, _hookProc, GetModuleHandle(null), 0);
+        if (_hookHandle == IntPtr.Zero)
+        {
+            throw new Win32Exception(
+                Marshal.GetLastWin32Error(),
+                "Failed to install the global keyboard hook.");
+        }
 
         try
         {
-            while (_running && GetMessage(out Msg _, IntPtr.Zero, 0, 0) > 0)
+            while (_running)
             {
+                int messageResult = GetMessage(out Msg _, IntPtr.Zero, 0, 0);
+                if (messageResult == -1)
+                {
+                    throw new Win32Exception(
+                        Marshal.GetLastWin32Error(),
+                        "The keyboard hook message loop failed.");
+                }
+
+                if (messageResult == 0)
+                {
+                    break;
+                }
             }
         }
         finally

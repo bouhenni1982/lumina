@@ -31,7 +31,7 @@ jobs:
         run: dotnet build .\Lumina.sln --configuration Release --no-restore
 
       - name: Publish Windows host
-        run: dotnet publish .\src\Lumina.Host\Lumina.Host.csproj --configuration Release --output .\artifacts\Lumina.Host --no-build
+        run: dotnet publish .\src\Lumina.Host\Lumina.Host.csproj --configuration Release --runtime win-x64 --self-contained true --output .\artifacts\Lumina.Host
 
       - name: Create ZIP package
         shell: pwsh

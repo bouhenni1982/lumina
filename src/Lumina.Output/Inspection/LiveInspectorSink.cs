@@ -12,6 +12,7 @@ public sealed class LiveInspectorSink : IInspectorSink
     private readonly object _sync = new();
     private readonly ManualResetEventSlim _ready = new(initialState: false);
     private readonly Thread _uiThread;
+    private Exception? _startupException;
     private Window? _window;
     private ListBox? _listBox;
     private ObservableCollection<string>? _entries;
@@ -27,6 +28,12 @@ public sealed class LiveInspectorSink : IInspectorSink
         _uiThread.SetApartmentState(ApartmentState.STA);
         _uiThread.Start();
         _ready.Wait();
+        if (_startupException is not null)
+        {
+            throw new InvalidOperationException(
+                "The live inspector window could not be created.",
+                _startupException);
+        }
     }
 
     public bool IsEnabled { get; private set; } = true;
@@ -104,59 +111,70 @@ public sealed class LiveInspectorSink : IInspectorSink
 
     private void RunWindow()
     {
-        _entries = new ObservableCollection<string>();
-
-        var header = new TextBlock
+        try
         {
-            Text = "آخر أحداث focus الملتقطة من Lumina",
-            Margin = new Thickness(12, 12, 12, 8),
-            FontSize = 16,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = Brushes.White
-        };
+            _entries = new ObservableCollection<string>();
 
-        _listBox = new ListBox
-        {
-            Margin = new Thickness(12, 0, 12, 12),
-            Background = new SolidColorBrush(Color.FromRgb(18, 24, 38)),
-            Foreground = Brushes.WhiteSmoke,
-            BorderBrush = new SolidColorBrush(Color.FromRgb(62, 79, 112)),
-            ItemsSource = _entries
-        };
-
-        var root = new DockPanel
-        {
-            Background = new SolidColorBrush(Color.FromRgb(10, 14, 24))
-        };
-
-        DockPanel.SetDock(header, Dock.Top);
-        root.Children.Add(header);
-        root.Children.Add(_listBox);
-
-        _window = new Window
-        {
-            Title = "Lumina Inspector",
-            Width = 980,
-            Height = 520,
-            Content = root,
-            WindowStartupLocation = WindowStartupLocation.CenterScreen
-        };
-
-        _window.Closed += (_, _) =>
-        {
-            if (Application.Current is not null)
+            var header = new TextBlock
             {
-                Application.Current.Shutdown();
-            }
-        };
+                Text = "آخر أحداث focus الملتقطة من Lumina",
+                Margin = new Thickness(12, 12, 12, 8),
+                FontSize = 16,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = Brushes.White
+            };
 
-        _ready.Set();
+            _listBox = new ListBox
+            {
+                Margin = new Thickness(12, 0, 12, 12),
+                Background = new SolidColorBrush(Color.FromRgb(18, 24, 38)),
+                Foreground = Brushes.WhiteSmoke,
+                BorderBrush = new SolidColorBrush(Color.FromRgb(62, 79, 112)),
+                ItemsSource = _entries
+            };
 
-        var application = new Application
+            var root = new DockPanel
+            {
+                Background = new SolidColorBrush(Color.FromRgb(10, 14, 24))
+            };
+
+            DockPanel.SetDock(header, Dock.Top);
+            root.Children.Add(header);
+            root.Children.Add(_listBox);
+
+            _window = new Window
+            {
+                Title = "Lumina Inspector",
+                Width = 980,
+                Height = 520,
+                Content = root,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen
+            };
+
+            _window.Closed += (_, _) =>
+            {
+                if (Application.Current is not null)
+                {
+                    Application.Current.Shutdown();
+                }
+            };
+
+            var application = new Application
+            {
+                ShutdownMode = ShutdownMode.OnExplicitShutdown
+            };
+
+            _ready.Set();
+            application.Run(_window);
+        }
+        catch (Exception exception)
         {
-            ShutdownMode = ShutdownMode.OnExplicitShutdown
-        };
-
-        application.Run(_window);
+            _startupException = exception;
+            throw;
+        }
+        finally
+        {
+            _ready.Set();
+        }
     }
 }
