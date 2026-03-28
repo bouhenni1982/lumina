@@ -537,9 +537,10 @@ public static class FocusSnapshotReader
 
         try
         {
-            AutomationElementCollection peers = scope.FindAll(
+            AutomationElementCollection rawPeers = scope.FindAll(
                 TreeScope.Descendants,
                 new PropertyCondition(AutomationElement.ControlTypeProperty, controlType));
+            List<AutomationElement> peers = FilterSettingsCandidates(rawPeers, controlType);
 
             if (peers.Count == 0)
             {
@@ -592,6 +593,121 @@ public static class FocusSnapshotReader
         }
 
         return text;
+    }
+
+    private static List<AutomationElement> FilterSettingsCandidates(
+        AutomationElementCollection rawPeers,
+        ControlType controlType)
+    {
+        List<AutomationElement> filtered = [];
+        HashSet<string> seenKeys = new(StringComparer.OrdinalIgnoreCase);
+
+        for (int i = 0; i < rawPeers.Count; i++)
+        {
+            AutomationElement candidate = rawPeers[i];
+            if (!IsUsefulSettingsCandidate(candidate, controlType))
+            {
+                continue;
+            }
+
+            string dedupeKey = BuildSettingsCandidateKey(candidate, controlType);
+            if (!seenKeys.Add(dedupeKey))
+            {
+                continue;
+            }
+
+            filtered.Add(candidate);
+        }
+
+        return filtered;
+    }
+
+    private static bool IsUsefulSettingsCandidate(AutomationElement candidate, ControlType controlType)
+    {
+        if (candidate.Current.IsOffscreen)
+        {
+            return false;
+        }
+
+        if (controlType == ControlType.Text)
+        {
+            return IsUsefulSettingsText(candidate);
+        }
+
+        if (controlType == ControlType.Group)
+        {
+            return IsUsefulSettingsGroup(candidate);
+        }
+
+        return candidate.Current.IsEnabled || controlType == ControlType.TabItem;
+    }
+
+    private static bool IsUsefulSettingsText(AutomationElement candidate)
+    {
+        string name = ResolveName(candidate).Trim();
+        if (string.IsNullOrWhiteSpace(name) || name == "عنصر غير مسمى")
+        {
+            return false;
+        }
+
+        if (name.Length <= 1)
+        {
+            return false;
+        }
+
+        if (name.All(char.IsPunctuation))
+        {
+            return false;
+        }
+
+        string automationId = candidate.Current.AutomationId ?? string.Empty;
+        string className = candidate.Current.ClassName ?? string.Empty;
+        string itemType = candidate.Current.ItemType ?? string.Empty;
+
+        if (automationId.Contains("Separator", StringComparison.OrdinalIgnoreCase) ||
+            className.Contains("Separator", StringComparison.OrdinalIgnoreCase) ||
+            itemType.Contains("description", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        Rect bounds = candidate.Current.BoundingRectangle;
+        if (!bounds.IsEmpty && (bounds.Width < 8 || bounds.Height < 8))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsUsefulSettingsGroup(AutomationElement candidate)
+    {
+        string name = ResolveName(candidate).Trim();
+        if (string.IsNullOrWhiteSpace(name) || name == "عنصر غير مسمى")
+        {
+            return false;
+        }
+
+        int childCount = 0;
+        try
+        {
+            childCount = candidate.FindAll(TreeScope.Children, Condition.TrueCondition).Count;
+        }
+        catch
+        {
+            childCount = 0;
+        }
+
+        return childCount > 0;
+    }
+
+    private static string BuildSettingsCandidateKey(AutomationElement candidate, ControlType controlType)
+    {
+        string name = ResolveName(candidate);
+        string automationId = candidate.Current.AutomationId ?? string.Empty;
+        Rect bounds = candidate.Current.BoundingRectangle;
+
+        return $"{controlType.ProgrammaticName}|{name}|{automationId}|{Math.Round(bounds.Top)}|{Math.Round(bounds.Left)}";
     }
 
     private static AutomationElement ResolveSettingsScope(AutomationElement element) =>
@@ -1033,7 +1149,7 @@ public static class FocusSnapshotReader
         return -1;
     }
 
-    private static int FindClosestElementIndex(AutomationElementCollection elements, AutomationElement reference)
+    private static int FindClosestElementIndex(IReadOnlyList<AutomationElement> elements, AutomationElement reference)
     {
         int exactIndex = FindElementIndex(elements, reference);
         if (exactIndex >= 0)
@@ -1069,6 +1185,19 @@ public static class FocusSnapshotReader
         }
 
         return 0;
+    }
+
+    private static int FindElementIndex(IReadOnlyList<AutomationElement> elements, AutomationElement target)
+    {
+        for (int i = 0; i < elements.Count; i++)
+        {
+            if (elements[i].Equals(target))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private static int CountDescendants(AutomationElement root, ControlType controlType)
