@@ -43,6 +43,10 @@ public sealed class LuminaRuntime : IDisposable
     {
         _accessibilityService.EventRaised -= OnEventRaised;
         _accessibilityService.Dispose();
+        if (_scriptEngine is IDisposable disposableScriptEngine)
+        {
+            disposableScriptEngine.Dispose();
+        }
         _speechService.Dispose();
     }
 }
