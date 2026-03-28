@@ -20,6 +20,7 @@ public sealed class GlobalHotKeyManager : IDisposable
     private const uint VkN = 0x4E;
     private const uint VkP = 0x50;
     private const uint VkB = 0x42;
+    private const uint VkY = 0x59;
 
     private readonly Action _speakCurrentFocus;
     private readonly Action _repeatLastSpeech;
@@ -34,6 +35,7 @@ public sealed class GlobalHotKeyManager : IDisposable
     private readonly Action _moveToNextBufferItem;
     private readonly Action _moveToPreviousBufferItem;
     private readonly Action _summarizeVirtualBuffer;
+    private readonly Action _syncVirtualBufferToFocus;
     private Thread? _messageLoopThread;
     private volatile bool _running;
     private uint _threadId;
@@ -51,7 +53,8 @@ public sealed class GlobalHotKeyManager : IDisposable
         Action refreshVirtualBuffer,
         Action moveToNextBufferItem,
         Action moveToPreviousBufferItem,
-        Action summarizeVirtualBuffer)
+        Action summarizeVirtualBuffer,
+        Action syncVirtualBufferToFocus)
     {
         _speakCurrentFocus = speakCurrentFocus;
         _repeatLastSpeech = repeatLastSpeech;
@@ -66,6 +69,7 @@ public sealed class GlobalHotKeyManager : IDisposable
         _moveToNextBufferItem = moveToNextBufferItem;
         _moveToPreviousBufferItem = moveToPreviousBufferItem;
         _summarizeVirtualBuffer = summarizeVirtualBuffer;
+        _syncVirtualBufferToFocus = syncVirtualBufferToFocus;
     }
 
     public void Start()
@@ -110,6 +114,7 @@ public sealed class GlobalHotKeyManager : IDisposable
         RegisterHotKey(IntPtr.Zero, 11, ModControl | ModAlt, VkN);
         RegisterHotKey(IntPtr.Zero, 12, ModControl | ModAlt, VkP);
         RegisterHotKey(IntPtr.Zero, 13, ModControl | ModAlt, VkB);
+        RegisterHotKey(IntPtr.Zero, 14, ModControl | ModAlt, VkY);
 
         try
         {
@@ -136,6 +141,7 @@ public sealed class GlobalHotKeyManager : IDisposable
             UnregisterHotKey(IntPtr.Zero, 11);
             UnregisterHotKey(IntPtr.Zero, 12);
             UnregisterHotKey(IntPtr.Zero, 13);
+            UnregisterHotKey(IntPtr.Zero, 14);
         }
     }
 
@@ -181,6 +187,9 @@ public sealed class GlobalHotKeyManager : IDisposable
                 break;
             case 13:
                 _summarizeVirtualBuffer();
+                break;
+            case 14:
+                _syncVirtualBufferToFocus();
                 break;
         }
     }

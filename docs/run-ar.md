@@ -44,6 +44,7 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
   - `Ctrl+Alt+N` للعنصر التالي في المخزن الظاهري
   - `Ctrl+Alt+P` للعنصر السابق في المخزن الظاهري
   - `Ctrl+Alt+B` لملخص حالة المخزن الظاهري
+  - `Ctrl+Alt+Y` لمزامنة المخزن الظاهري مع العنصر الحالي
 
 ## ما الذي لم يكتمل بعد
 

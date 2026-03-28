@@ -26,16 +26,21 @@ public static class BrowserVirtualBuffer
             .EnumerateBufferCandidates(root)
             .Select(element => new BufferItem(
                 RuntimeId: SafeRuntimeId(element),
+                Element: element,
                 Summary: FocusSnapshotReader.BuildWebSummary(element)))
             .Where(item => !string.IsNullOrWhiteSpace(item.Summary))
             .ToList();
 
         string pageTitle = FocusSnapshotReader.ResolveWindowTitle(focused);
+        string focusedRuntimeId = SafeRuntimeId(focused);
+        int focusedIndex = items.FindIndex(item => item.RuntimeId == focusedRuntimeId);
 
         lock (Sync)
         {
             _snapshot = new BufferSnapshot(pageTitle, items);
-            _currentIndex = items.Count == 0 ? -1 : 0;
+            _currentIndex = items.Count == 0
+                ? -1
+                : focusedIndex >= 0 ? focusedIndex : 0;
         }
 
         if (items.Count == 0)
@@ -43,7 +48,7 @@ public static class BrowserVirtualBuffer
             return "تم تحديث المخزن الظاهري، لكن لم يتم العثور على عناصر ويب قابلة للقراءة.";
         }
 
-        return $"تم تحديث المخزن الظاهري. الصفحة {pageTitle}. العناصر {items.Count}.";
+        return $"تم تحديث المخزن الظاهري. الصفحة {pageTitle}. العناصر {items.Count}. الموضع الحالي {Math.Max(_currentIndex + 1, 0)}.";
     }
 
     public static string ReadCurrent()
@@ -69,7 +74,7 @@ public static class BrowserVirtualBuffer
             }
 
             _currentIndex = (_currentIndex + 1) % _snapshot.Items.Count;
-            return _snapshot.Items[_currentIndex].Summary;
+            return FocusBufferItem(_snapshot.Items[_currentIndex]);
         }
     }
 
@@ -88,7 +93,7 @@ public static class BrowserVirtualBuffer
                 _currentIndex = _snapshot.Items.Count - 1;
             }
 
-            return _snapshot.Items[_currentIndex].Summary;
+            return FocusBufferItem(_snapshot.Items[_currentIndex]);
         }
     }
 
@@ -105,6 +110,46 @@ public static class BrowserVirtualBuffer
         }
     }
 
+    public static string SyncToFocusedElement()
+    {
+        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+        if (focused is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
+        lock (Sync)
+        {
+            if (_snapshot is null || _snapshot.Items.Count == 0)
+            {
+                return "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
+            }
+
+            string runtimeId = SafeRuntimeId(focused);
+            int index = _snapshot.Items.FindIndex(item => item.RuntimeId == runtimeId);
+            if (index < 0)
+            {
+                return "العنصر الحالي غير موجود داخل المخزن الظاهري.";
+            }
+
+            _currentIndex = index;
+            return $"تمت مزامنة المخزن الظاهري. الموضع الحالي {_currentIndex + 1}. {_snapshot.Items[_currentIndex].Summary}";
+        }
+    }
+
+    private static string FocusBufferItem(BufferItem item)
+    {
+        try
+        {
+            item.Element.SetFocus();
+        }
+        catch
+        {
+        }
+
+        return item.Summary;
+    }
+
     private static string SafeRuntimeId(AutomationElement element)
     {
         try
@@ -119,5 +164,5 @@ public static class BrowserVirtualBuffer
     }
 
     private sealed record BufferSnapshot(string PageTitle, List<BufferItem> Items);
-    private sealed record BufferItem(string RuntimeId, string Summary);
+    private sealed record BufferItem(string RuntimeId, AutomationElement Element, string Summary);
 }
