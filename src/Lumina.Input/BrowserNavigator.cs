@@ -32,6 +32,8 @@ public static class BrowserNavigator
         int landmarks = 0;
         int tables = 0;
         int lists = 0;
+        int dialogs = 0;
+        int formFields = 0;
 
         foreach (AutomationElement element in elements)
         {
@@ -45,12 +47,19 @@ public static class BrowserNavigator
                     break;
                 case "web_edit":
                     editFields++;
+                    formFields++;
                     break;
                 case "web_button":
                     buttons++;
+                    formFields++;
                     break;
                 case "web_checkbox":
                     checkboxes++;
+                    formFields++;
+                    break;
+                case "web_radio":
+                case "web_combobox":
+                    formFields++;
                     break;
                 case "web_landmark":
                     landmarks++;
@@ -60,6 +69,9 @@ public static class BrowserNavigator
                     break;
                 case "web_list":
                     lists++;
+                    break;
+                case "web_dialog":
+                    dialogs++;
                     break;
             }
         }
@@ -96,6 +108,16 @@ public static class BrowserNavigator
             parts.Add($"القوائم {lists}");
         }
 
+        if (dialogs > 0)
+        {
+            parts.Add($"الحوارات {dialogs}");
+        }
+
+        if (formFields > 0)
+        {
+            parts.Add($"عناصر النماذج {formFields}");
+        }
+
         return string.Join(". ", parts);
     }
 
@@ -119,6 +141,15 @@ public static class BrowserNavigator
 
     public static string MoveToNextTable() => MoveToNextSemanticRole("web_table", "لا يوجد جدول تال في الصفحة.");
     public static string MoveToPreviousTable() => MoveToPreviousSemanticRole("web_table", "لا يوجد جدول سابق في الصفحة.");
+
+    public static string MoveToNextList() => MoveToNextSemanticRole("web_list", "لا توجد قائمة تالية في الصفحة.");
+    public static string MoveToPreviousList() => MoveToPreviousSemanticRole("web_list", "لا توجد قائمة سابقة في الصفحة.");
+
+    public static string MoveToNextDialog() => MoveToNextSemanticRole("web_dialog", "لا يوجد حوار تال في الصفحة.");
+    public static string MoveToPreviousDialog() => MoveToPreviousSemanticRole("web_dialog", "لا يوجد حوار سابق في الصفحة.");
+
+    public static string MoveToNextFormField() => MoveToNextFormFieldCore(moveNext: true);
+    public static string MoveToPreviousFormField() => MoveToNextFormFieldCore(moveNext: false);
 
     private static string MoveToNextSemanticRole(string semanticRole, string missingMessage)
     {
@@ -198,6 +229,56 @@ public static class BrowserNavigator
         return missingMessage;
     }
 
+    private static string MoveToNextFormFieldCore(bool moveNext)
+    {
+        AutomationElement? current = FocusSnapshotReader.GetFocusedElement();
+        if (current is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
+        if (!FocusSnapshotReader.IsBrowserContext(current))
+        {
+            return "العنصر الحالي ليس ضمن سياق ويب معروف.";
+        }
+
+        AutomationElement root = ResolveNavigationRoot(current);
+        List<AutomationElement> elements = EnumerateElements(root).ToList();
+        if (elements.Count == 0)
+        {
+            return moveNext
+                ? "لا يوجد عنصر نموذج تال في الصفحة."
+                : "لا يوجد عنصر نموذج سابق في الصفحة.";
+        }
+
+        int currentIndex = elements.FindIndex(element => SameElement(element, current));
+        IEnumerable<AutomationElement> orderedCandidates = moveNext
+            ? EnumerateAfterCurrent(elements, currentIndex)
+            : EnumerateBeforeCurrent(elements, currentIndex);
+
+        foreach (AutomationElement candidate in orderedCandidates)
+        {
+            string role = FocusSnapshotReader.ResolveWebSemanticRole(candidate);
+            if (!IsFormFieldRole(role))
+            {
+                continue;
+            }
+
+            try
+            {
+                candidate.SetFocus();
+                return FocusSnapshotReader.BuildWebSummary(candidate);
+            }
+            catch
+            {
+            }
+        }
+
+        return moveNext
+            ? "لا يوجد عنصر نموذج تال في الصفحة."
+            : "لا يوجد عنصر نموذج سابق في الصفحة.";
+    }
+
     internal static AutomationElement ResolveNavigationRootForBuffer(AutomationElement current) => ResolveNavigationRoot(current);
 
     internal static IEnumerable<AutomationElement> EnumerateBufferCandidates(AutomationElement root) =>
@@ -251,6 +332,9 @@ public static class BrowserNavigator
         string name = FocusSnapshotReader.ResolveName(element);
         return !string.IsNullOrWhiteSpace(name) && name != "عنصر غير مسمى";
     }
+
+    private static bool IsFormFieldRole(string semanticRole) =>
+        semanticRole is "web_edit" or "web_combobox" or "web_checkbox" or "web_radio" or "web_button";
 
     private static IEnumerable<AutomationElement> EnumerateAfterCurrent(IReadOnlyList<AutomationElement> elements, int currentIndex)
     {

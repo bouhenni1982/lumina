@@ -59,6 +59,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkH = 0x48;
     private const uint VkK = 0x4B;
     private const uint VkE = 0x45;
+    private const uint VkLBrowser = 0x4C;
 
     private readonly Action _speakCurrentFocus;
     private readonly Action _repeatLastSpeech;
@@ -104,6 +105,12 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _moveToPreviousLandmark;
     private readonly Action _moveToNextTable;
     private readonly Action _moveToPreviousTable;
+    private readonly Action _moveToNextList;
+    private readonly Action _moveToPreviousList;
+    private readonly Action _moveToNextDialog;
+    private readonly Action _moveToPreviousDialog;
+    private readonly Action _moveToNextFormField;
+    private readonly Action _moveToPreviousFormField;
     private readonly Action _summarizeCurrentPage;
     private readonly Action _refreshVirtualBuffer;
     private readonly Action _summarizeVirtualBuffer;
@@ -182,6 +189,12 @@ public sealed class KeyboardCommandManager : IDisposable
         Action moveToPreviousLandmark,
         Action moveToNextTable,
         Action moveToPreviousTable,
+        Action moveToNextList,
+        Action moveToPreviousList,
+        Action moveToNextDialog,
+        Action moveToPreviousDialog,
+        Action moveToNextFormField,
+        Action moveToPreviousFormField,
         Action summarizeCurrentPage,
         Action refreshVirtualBuffer,
         Action summarizeVirtualBuffer,
@@ -247,6 +260,12 @@ public sealed class KeyboardCommandManager : IDisposable
         _moveToPreviousLandmark = moveToPreviousLandmark;
         _moveToNextTable = moveToNextTable;
         _moveToPreviousTable = moveToPreviousTable;
+        _moveToNextList = moveToNextList;
+        _moveToPreviousList = moveToPreviousList;
+        _moveToNextDialog = moveToNextDialog;
+        _moveToPreviousDialog = moveToPreviousDialog;
+        _moveToNextFormField = moveToNextFormField;
+        _moveToPreviousFormField = moveToPreviousFormField;
         _summarizeCurrentPage = summarizeCurrentPage;
         _refreshVirtualBuffer = refreshVirtualBuffer;
         _summarizeVirtualBuffer = summarizeVirtualBuffer;
@@ -564,6 +583,12 @@ public sealed class KeyboardCommandManager : IDisposable
             VkD => _moveToNextLandmark,
             VkT when shiftDown => _moveToPreviousTable,
             VkT => _moveToNextTable,
+            VkLBrowser when shiftDown => _moveToPreviousList,
+            VkLBrowser => _moveToNextList,
+            VkA when shiftDown => _moveToPreviousDialog,
+            VkA => _moveToNextDialog,
+            VkF when shiftDown => _moveToPreviousFormField,
+            VkF => _moveToNextFormField,
             _ => null
         };
 

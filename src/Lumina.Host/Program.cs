@@ -45,7 +45,7 @@ try
     Console.WriteLine("Insert+Left/Right للكلمة السابقة أو اللاحقة.");
     Console.WriteLine("Insert+PageUp/PageDown للجملة السابقة أو اللاحقة.");
     Console.WriteLine("داخل وضع المراجعة: الأسهم للحرف والسطر وCtrl+الأسهم للكلمة والفقرة وHome/End لبداية ونهاية السطر.");
-    Console.WriteLine("داخل المتصفح: H/K/E/B/X/D/T للتنقل بين العناوين والروابط والحقول والأزرار وخانات الاختيار والمعالم والجداول.");
+    Console.WriteLine("داخل المتصفح: H/K/E/B/X/D/T/L/A/F للتنقل بين العناوين والروابط والحقول والأزرار وخانات الاختيار والمعالم والجداول والقوائم والحوارات وعناصر النماذج.");
     Console.WriteLine("Insert+Space داخل المتصفح للتبديل بين وضع التصفح ووضع التركيز. وEscape للرجوع إلى وضع التصفح.");
     Console.WriteLine("اضغط Ctrl+C للإيقاف.");
 
@@ -270,6 +270,36 @@ try
         moveToPreviousTable: () =>
         {
             string text = BrowserNavigator.MoveToPreviousTable();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextList: () =>
+        {
+            string text = BrowserNavigator.MoveToNextList();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousList: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousList();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextDialog: () =>
+        {
+            string text = BrowserNavigator.MoveToNextDialog();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousDialog: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousDialog();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextFormField: () =>
+        {
+            string text = BrowserNavigator.MoveToNextFormField();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousFormField: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousFormField();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         summarizeCurrentPage: () =>
