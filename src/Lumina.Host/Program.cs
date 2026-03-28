@@ -13,6 +13,7 @@ Console.WriteLine("يسجل Inspector الأحداث في inspector/focus-events
 Console.WriteLine("ويعرض نافذة Inspector حيّة لآخر الأحداث.");
 Console.WriteLine("Insert+F لقراءة العنصر الحالي.");
 Console.WriteLine("Insert+Tab لقراءة معلومات موسعة عن العنصر الحالي.");
+Console.WriteLine("كرر Insert+Tab بسرعة لقراءة تفاصيل تشخيصية أعمق عن العنصر الحالي.");
 Console.WriteLine("Insert+L لإعادة آخر رسالة منطوقة.");
 Console.WriteLine("Insert+I لتبديل Inspector.");
 Console.WriteLine("Insert+T لقراءة عنوان الصفحة الحالية في المتصفح.");
@@ -49,6 +50,11 @@ using var hotKeys = new KeyboardCommandManager(
     speakCurrentElementDetails: () =>
     {
         string text = FocusSnapshotReader.ReadCurrentElementDetails();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    speakCurrentElementAdvancedDetails: () =>
+    {
+        string text = FocusSnapshotReader.ReadCurrentElementAdvancedDetails();
         speechService.Enqueue(new SpeechRequest(text, 100, true));
     },
     toggleInspector: inspectorSink.Toggle,

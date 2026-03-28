@@ -44,6 +44,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _speakCurrentFocus;
     private readonly Action _repeatLastSpeech;
     private readonly Action _speakCurrentElementDetails;
+    private readonly Action _speakCurrentElementAdvancedDetails;
     private readonly Action _toggleInspector;
     private readonly Action _speakPageTitle;
     private readonly Action _speakWebSummary;
@@ -78,11 +79,15 @@ public sealed class KeyboardCommandManager : IDisposable
     private volatile bool _running;
     private bool _insertDown;
     private bool _textReviewMode;
+    private DateTime _lastElementDetailsCommandUtc = DateTime.MinValue;
+
+    private static readonly TimeSpan AdvancedDetailsRepeatWindow = TimeSpan.FromMilliseconds(900);
 
     public KeyboardCommandManager(
         Action speakCurrentFocus,
         Action repeatLastSpeech,
         Action speakCurrentElementDetails,
+        Action speakCurrentElementAdvancedDetails,
         Action toggleInspector,
         Action speakPageTitle,
         Action speakWebSummary,
@@ -113,6 +118,7 @@ public sealed class KeyboardCommandManager : IDisposable
         _speakCurrentFocus = speakCurrentFocus;
         _repeatLastSpeech = repeatLastSpeech;
         _speakCurrentElementDetails = speakCurrentElementDetails;
+        _speakCurrentElementAdvancedDetails = speakCurrentElementAdvancedDetails;
         _toggleInspector = toggleInspector;
         _speakPageTitle = speakPageTitle;
         _speakWebSummary = speakWebSummary;
@@ -271,11 +277,17 @@ public sealed class KeyboardCommandManager : IDisposable
 
     private bool TryHandleScreenReaderCommand(uint vkCode)
     {
+        if (vkCode == VkTab)
+        {
+            Action action = ResolveElementDetailsAction();
+            ThreadPool.QueueUserWorkItem(_ => action());
+            return true;
+        }
+
         Action? action = vkCode switch
         {
             VkF => _speakCurrentFocus,
             VkL => _repeatLastSpeech,
-            VkTab => _speakCurrentElementDetails,
             VkI => _toggleInspector,
             VkT => _speakPageTitle,
             VkW => _speakWebSummary,
@@ -297,6 +309,14 @@ public sealed class KeyboardCommandManager : IDisposable
 
         ThreadPool.QueueUserWorkItem(_ => action());
         return true;
+    }
+
+    private Action ResolveElementDetailsAction()
+    {
+        DateTime now = DateTime.UtcNow;
+        bool useAdvancedDetails = now - _lastElementDetailsCommandUtc <= AdvancedDetailsRepeatWindow;
+        _lastElementDetailsCommandUtc = now;
+        return useAdvancedDetails ? _speakCurrentElementAdvancedDetails : _speakCurrentElementDetails;
     }
 
     private bool TryHandleTextReview(uint vkCode, bool controlDown)

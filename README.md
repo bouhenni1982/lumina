@@ -19,6 +19,7 @@ Lumina هو مشروع قارئ شاشة حديث مخصص لنظام Windows 10
 - keyboard hook بمفتاح `Insert` كـ modifier رئيسي لأوامر قارئ الشاشة
 - وضع مراجعة نصية أولي يحاكي JAWS:
   - `Insert+Tab` لقراءة معلومات موسعة عن العنصر الحالي
+  - تكرار `Insert+Tab` بسرعة يقرأ تفاصيل تشخيصية أعمق عن العنصر الحالي
   - `Insert+Enter` لتبديل Text Review
   - `Insert+Up` للسطر الحالي
   - `Insert+Down` للقراءة المتصلة `Say All`

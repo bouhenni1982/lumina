@@ -33,6 +33,7 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
 - تدعم keyboard hook بأوامر قارئ الشاشة:
   - `Insert+F` لقراءة العنصر الحالي
   - `Insert+Tab` لقراءة معلومات موسعة عن العنصر الحالي
+  - تكرار `Insert+Tab` بسرعة لقراءة تفاصيل تشخيصية أعمق عن العنصر الحالي
   - `Insert+L` لإعادة آخر نطق
   - `Insert+I` لإظهار أو إخفاء Inspector
   - `Insert+T` لقراءة عنوان الصفحة أو النافذة الحالية في المتصفح

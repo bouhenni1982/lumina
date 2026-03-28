@@ -79,6 +79,66 @@ public static class FocusSnapshotReader
         return string.Join(". ", segments);
     }
 
+    public static string ReadCurrentElementAdvancedDetails()
+    {
+        AutomationElement? element = GetFocusedElement();
+        if (element is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
+        string className = element.Current.ClassName ?? string.Empty;
+        string frameworkId = element.Current.FrameworkId ?? string.Empty;
+        string acceleratorKey = element.Current.AcceleratorKey ?? string.Empty;
+        string accessKey = element.Current.AccessKey ?? string.Empty;
+        string itemStatus = element.Current.ItemStatus ?? string.Empty;
+        string itemType = element.Current.ItemType ?? string.Empty;
+        string patterns = ResolveSupportedPatterns(element);
+        Rect bounds = element.Current.BoundingRectangle;
+
+        List<string> segments =
+        [
+            ReadCurrentElementDetails(),
+            $"الإطار {NormalizeValue(frameworkId, "غير معروف")}",
+            $"الصنف {NormalizeValue(className, "غير معروف")}",
+            $"ممكّن {(element.Current.IsEnabled ? "نعم" : "لا")}",
+            $"خارج الشاشة {(element.Current.IsOffscreen ? "نعم" : "لا")}",
+            $"يمتلك التركيز {(element.Current.HasKeyboardFocus ? "نعم" : "لا")}"
+        ];
+
+        if (!string.IsNullOrWhiteSpace(itemType))
+        {
+            segments.Add($"نوع العنصر {itemType}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(itemStatus))
+        {
+            segments.Add($"حالة العنصر {itemStatus}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(accessKey))
+        {
+            segments.Add($"مفتاح الوصول {accessKey}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(acceleratorKey))
+        {
+            segments.Add($"مفتاح التسريع {acceleratorKey}");
+        }
+
+        if (!bounds.IsEmpty)
+        {
+            segments.Add($"الموضع {Math.Round(bounds.Left)}, {Math.Round(bounds.Top)}, {Math.Round(bounds.Width)}, {Math.Round(bounds.Height)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(patterns))
+        {
+            segments.Add($"الأنماط المدعومة {patterns}");
+        }
+
+        return string.Join(". ", segments);
+    }
+
     public static string ReadCurrentPageTitle()
     {
         AutomationElement? element = GetFocusedElement();
@@ -237,6 +297,42 @@ public static class FocusSnapshotReader
             return "unknown";
         }
     }
+
+    internal static string ResolveSupportedPatterns(AutomationElement element)
+    {
+        try
+        {
+            AutomationPattern[] patterns = element.GetSupportedPatterns();
+            if (patterns.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            List<string> names = [];
+            foreach (AutomationPattern pattern in patterns)
+            {
+                string name = pattern.ProgrammaticName ?? string.Empty;
+                if (name.StartsWith("AutomationPattern.", StringComparison.OrdinalIgnoreCase))
+                {
+                    name = name["AutomationPattern.".Length..];
+                }
+
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    names.Add(name);
+                }
+            }
+
+            return string.Join(", ", names);
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    internal static string NormalizeValue(string value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
 
     internal static AutomationElement? FindAncestor(
         AutomationElement element,
