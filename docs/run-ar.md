@@ -29,6 +29,7 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
 - تسجل Inspector في `inspector/focus-events.jsonl`
 - تعرض نافذة Inspector حيّة فيها آخر أحداث focus
 - ترصد التطبيقات المرشحة لـ `IAccessible2` مثل Firefox وChromium وElectron
+- تطبّع عناصر الويب إلى `semantic roles` أوضح داخل المتصفح
 - تدعم hotkeys:
   - `Ctrl+Alt+F` لقراءة العنصر الحالي
   - `Ctrl+Alt+L` لإعادة آخر نطق

@@ -36,8 +36,10 @@ public sealed class JsonInspectorSink : IInspectorSink
                 screenEvent.Node.SourceApi,
                 screenEvent.Node.Name,
                 screenEvent.Node.Role,
+                screenEvent.Node.SemanticRole,
                 screenEvent.Node.Value,
                 screenEvent.Node.Hint,
+                screenEvent.Node.ContextKind,
                 screenEvent.Node.SourceProcess
             },
             speech = new

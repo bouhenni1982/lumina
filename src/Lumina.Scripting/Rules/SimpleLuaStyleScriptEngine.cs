@@ -95,6 +95,8 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
         eventTable["value"] = screenEvent.Node.Value;
         eventTable["hint"] = screenEvent.Node.Hint;
         eventTable["source_api"] = screenEvent.Node.SourceApi;
+        eventTable["semantic_role"] = screenEvent.Node.SemanticRole;
+        eventTable["context_kind"] = screenEvent.Node.ContextKind;
         eventTable["process"] = screenEvent.Node.SourceProcess;
         return eventTable;
     }
@@ -105,6 +107,10 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
 
         string text = node.Role switch
         {
+            _ when node.ContextKind == "browser" && node.SemanticRole == "web_link" => $"رابط {node.Name}",
+            _ when node.ContextKind == "browser" && node.SemanticRole == "web_heading" => $"عنوان ويب {node.Name}",
+            _ when node.ContextKind == "browser" && node.SemanticRole == "web_document" => $"مستند ويب {node.Name}",
+            _ when node.ContextKind == "browser" && node.SemanticRole == "web_edit" => $"حقل ويب {node.Name}",
             "button" => $"زر {node.Name}",
             "edit" => $"حقل تحرير {node.Name}",
             "document" => $"مستند {node.Name}",

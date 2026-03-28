@@ -5,7 +5,9 @@ public sealed record AccessibleNode(
     string SourceApi,
     string Name,
     string Role,
+    string? SemanticRole,
     string? Value,
     string? Hint,
+    string? ContextKind,
     string SourceProcess,
     DateTimeOffset TimestampUtc);

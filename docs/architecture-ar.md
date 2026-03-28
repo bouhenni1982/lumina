@@ -316,6 +316,8 @@ AccessibleNode
 - دعم Chrome / Edge / Firefox عبر:
   - UIA عندما يكون جيدًا
   - IA2 عند الحاجة خاصة في Firefox وبعض المحتويات
+  المستودع الحالي يحتوي الآن على Browser Adapter أولي يضيف `semantic roles`
+  مثل `web_link` و `web_heading` و `web_edit` إلى النموذج الداخلي.
 - إنشاء browse mode منفصل عن focus mode
 - إضافة virtual buffer اختياري لاحقًا
 - تعريف profiles خاصة:

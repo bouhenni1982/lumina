@@ -40,7 +40,8 @@ public sealed class LiveInspectorSink : IInspectorSink
 
         string line =
             $"{DateTime.Now:HH:mm:ss} | {screenEvent.Node.SourceProcess} | {screenEvent.Node.SourceApi} | " +
-            $"{screenEvent.Node.Role} | {screenEvent.Node.Name} | {speechRequest.Text}";
+            $"{screenEvent.Node.ContextKind ?? "app"} | {screenEvent.Node.Role} | " +
+            $"{screenEvent.Node.SemanticRole ?? "-"} | {screenEvent.Node.Name} | {speechRequest.Text}";
 
         _window.Dispatcher.BeginInvoke(() =>
         {

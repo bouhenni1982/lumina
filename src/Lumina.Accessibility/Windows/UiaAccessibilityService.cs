@@ -9,6 +9,7 @@ public sealed class UiaAccessibilityService : IAccessibilityService
 {
     private readonly MsaaFallbackProbe _msaaFallbackProbe = new();
     private readonly Ia2FallbackProbe _ia2FallbackProbe = new();
+    private readonly BrowserAccessibilityAdapter _browserAccessibilityAdapter = new();
 
     public event EventHandler<ScreenEvent>? EventRaised;
 
@@ -84,6 +85,17 @@ public sealed class UiaAccessibilityService : IAccessibilityService
                 : $"UIA+{ia2Tag}";
         }
 
+        BrowserAdaptation browserAdaptation = _browserAccessibilityAdapter.Apply(
+            element,
+            processName,
+            sourceApi,
+            role,
+            value,
+            hint);
+
+        role = browserAdaptation.Role;
+        hint = browserAdaptation.Hint;
+
         string id = string.IsNullOrWhiteSpace(element.Current.AutomationId)
             ? $"{element.Current.ProcessId}:{role}:{name}"
             : element.Current.AutomationId;
@@ -93,8 +105,10 @@ public sealed class UiaAccessibilityService : IAccessibilityService
             SourceApi: sourceApi,
             Name: name,
             Role: role,
+            SemanticRole: browserAdaptation.SemanticRole,
             Value: value,
             Hint: hint,
+            ContextKind: browserAdaptation.ContextKind,
             SourceProcess: processName,
             TimestampUtc: DateTimeOffset.UtcNow);
 
