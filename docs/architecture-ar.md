@@ -319,6 +319,8 @@ AccessibleNode
   المستودع الحالي يحتوي الآن على Browser Adapter أولي يضيف `semantic roles`
   مثل `web_link` و `web_heading` و `web_edit` إلى النموذج الداخلي.
 - إنشاء browse mode منفصل عن focus mode
+  التطبيق الحالي أضاف أوامر أولية قريبة من `browse mode`
+  مثل قراءة عنوان الصفحة وقراءة ملخص العنصر الحالي داخل سياق المتصفح.
 - إضافة virtual buffer اختياري لاحقًا
 - تعريف profiles خاصة:
   - صفحات الويب

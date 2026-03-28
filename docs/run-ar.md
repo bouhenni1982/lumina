@@ -34,6 +34,8 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
   - `Ctrl+Alt+F` لقراءة العنصر الحالي
   - `Ctrl+Alt+L` لإعادة آخر نطق
   - `Ctrl+Alt+I` لإظهار أو إخفاء Inspector وإيقافه مؤقتًا
+  - `Ctrl+Alt+T` لقراءة عنوان الصفحة أو النافذة الحالية في المتصفح
+  - `Ctrl+Alt+W` لقراءة ملخص ويب للعنصر الحالي
 
 ## ما الذي لم يكتمل بعد
 

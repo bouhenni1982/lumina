@@ -10,10 +10,14 @@ public sealed class GlobalHotKeyManager : IDisposable
     private const uint VkF = 0x46;
     private const uint VkL = 0x4C;
     private const uint VkI = 0x49;
+    private const uint VkT = 0x54;
+    private const uint VkW = 0x57;
 
     private readonly Action _speakCurrentFocus;
     private readonly Action _repeatLastSpeech;
     private readonly Action _toggleInspector;
+    private readonly Action _speakPageTitle;
+    private readonly Action _speakWebSummary;
     private Thread? _messageLoopThread;
     private volatile bool _running;
     private uint _threadId;
@@ -21,11 +25,15 @@ public sealed class GlobalHotKeyManager : IDisposable
     public GlobalHotKeyManager(
         Action speakCurrentFocus,
         Action repeatLastSpeech,
-        Action toggleInspector)
+        Action toggleInspector,
+        Action speakPageTitle,
+        Action speakWebSummary)
     {
         _speakCurrentFocus = speakCurrentFocus;
         _repeatLastSpeech = repeatLastSpeech;
         _toggleInspector = toggleInspector;
+        _speakPageTitle = speakPageTitle;
+        _speakWebSummary = speakWebSummary;
     }
 
     public void Start()
@@ -60,6 +68,8 @@ public sealed class GlobalHotKeyManager : IDisposable
         RegisterHotKey(IntPtr.Zero, 1, ModControl | ModAlt, VkF);
         RegisterHotKey(IntPtr.Zero, 2, ModControl | ModAlt, VkL);
         RegisterHotKey(IntPtr.Zero, 3, ModControl | ModAlt, VkI);
+        RegisterHotKey(IntPtr.Zero, 4, ModControl | ModAlt, VkT);
+        RegisterHotKey(IntPtr.Zero, 5, ModControl | ModAlt, VkW);
 
         try
         {
@@ -76,6 +86,8 @@ public sealed class GlobalHotKeyManager : IDisposable
             UnregisterHotKey(IntPtr.Zero, 1);
             UnregisterHotKey(IntPtr.Zero, 2);
             UnregisterHotKey(IntPtr.Zero, 3);
+            UnregisterHotKey(IntPtr.Zero, 4);
+            UnregisterHotKey(IntPtr.Zero, 5);
         }
     }
 
@@ -91,6 +103,12 @@ public sealed class GlobalHotKeyManager : IDisposable
                 break;
             case 3:
                 _toggleInspector();
+                break;
+            case 4:
+                _speakPageTitle();
+                break;
+            case 5:
+                _speakWebSummary();
                 break;
         }
     }
