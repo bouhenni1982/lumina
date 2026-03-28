@@ -369,7 +369,7 @@ try
             string text = TextReviewCursor.SayAllFromReviewCursor();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
-        announceBrowserMode: text =>
+        speakBrowserMessage: text =>
         {
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         });

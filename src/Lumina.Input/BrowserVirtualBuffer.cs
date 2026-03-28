@@ -7,6 +7,7 @@ public static class BrowserVirtualBuffer
     private static readonly object Sync = new();
     private static BufferSnapshot? _snapshot;
     private static int _currentIndex = -1;
+    private static int _textOffset;
 
     public static string Refresh()
     {
@@ -41,6 +42,7 @@ public static class BrowserVirtualBuffer
             _currentIndex = items.Count == 0
                 ? -1
                 : focusedIndex >= 0 ? focusedIndex : 0;
+            _textOffset = 0;
         }
 
         if (items.Count == 0)
@@ -64,6 +66,145 @@ public static class BrowserVirtualBuffer
         }
     }
 
+    public static string ReadCurrentLine() =>
+        EnsureSnapshotReady() ? ReadCurrent() : "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
+
+    public static string ReadNextLine()
+    {
+        if (!EnsureSnapshotReady())
+        {
+            return "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
+        }
+
+        lock (Sync)
+        {
+            if (_snapshot is null || _snapshot.Items.Count == 0)
+            {
+                return "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
+            }
+
+            if (_currentIndex >= _snapshot.Items.Count - 1)
+            {
+                return "لا يوجد سطر تال في الصفحة.";
+            }
+
+            _currentIndex++;
+            _textOffset = 0;
+            return FocusBufferItem(_snapshot.Items[_currentIndex]);
+        }
+    }
+
+    public static string ReadPreviousLine()
+    {
+        if (!EnsureSnapshotReady())
+        {
+            return "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
+        }
+
+        lock (Sync)
+        {
+            if (_snapshot is null || _snapshot.Items.Count == 0)
+            {
+                return "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
+            }
+
+            if (_currentIndex <= 0)
+            {
+                return "لا يوجد سطر سابق في الصفحة.";
+            }
+
+            _currentIndex--;
+            _textOffset = 0;
+            return FocusBufferItem(_snapshot.Items[_currentIndex]);
+        }
+    }
+
+    public static string ReadNextCharacter()
+    {
+        if (!EnsureSnapshotReady())
+        {
+            return "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
+        }
+
+        lock (Sync)
+        {
+            string text = GetCurrentSummaryText();
+            if (string.IsNullOrEmpty(text) || _textOffset >= text.Length)
+            {
+                return "لا يوجد حرف تال في هذا السطر.";
+            }
+
+            char character = text[_textOffset];
+            _textOffset++;
+            return $"الحرف {DescribeCharacter(character)}";
+        }
+    }
+
+    public static string ReadPreviousCharacter()
+    {
+        if (!EnsureSnapshotReady())
+        {
+            return "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
+        }
+
+        lock (Sync)
+        {
+            string text = GetCurrentSummaryText();
+            if (string.IsNullOrEmpty(text) || _textOffset <= 0)
+            {
+                return "لا يوجد حرف سابق في هذا السطر.";
+            }
+
+            _textOffset--;
+            char character = text[_textOffset];
+            return $"الحرف {DescribeCharacter(character)}";
+        }
+    }
+
+    public static string ReadNextWord()
+    {
+        if (!EnsureSnapshotReady())
+        {
+            return "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
+        }
+
+        lock (Sync)
+        {
+            string text = GetCurrentSummaryText();
+            int start = FindNextWordStart(text, _textOffset);
+            if (start < 0)
+            {
+                return "لا توجد كلمة تالية في هذا السطر.";
+            }
+
+            int end = FindWordEnd(text, start);
+            _textOffset = end;
+            return $"الكلمة {text[start..end]}";
+        }
+    }
+
+    public static string ReadPreviousWord()
+    {
+        if (!EnsureSnapshotReady())
+        {
+            return "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
+        }
+
+        lock (Sync)
+        {
+            string text = GetCurrentSummaryText();
+            int start = FindPreviousWordStart(text, _textOffset);
+            if (start < 0)
+            {
+                return "لا توجد كلمة سابقة في هذا السطر.";
+            }
+
+            int end = FindWordEnd(text, start);
+            _textOffset = start;
+            return $"الكلمة {text[start..end]}";
+        }
+    }
+
     public static string MoveNext()
     {
         lock (Sync)
@@ -74,6 +215,7 @@ public static class BrowserVirtualBuffer
             }
 
             _currentIndex = (_currentIndex + 1) % _snapshot.Items.Count;
+            _textOffset = 0;
             return FocusBufferItem(_snapshot.Items[_currentIndex]);
         }
     }
@@ -93,6 +235,7 @@ public static class BrowserVirtualBuffer
                 _currentIndex = _snapshot.Items.Count - 1;
             }
 
+            _textOffset = 0;
             return FocusBufferItem(_snapshot.Items[_currentIndex]);
         }
     }
@@ -133,9 +276,88 @@ public static class BrowserVirtualBuffer
             }
 
             _currentIndex = index;
+            _textOffset = 0;
             return $"تمت مزامنة المخزن الظاهري. الموضع الحالي {_currentIndex + 1}. {_snapshot.Items[_currentIndex].Summary}";
         }
     }
+
+    private static bool EnsureSnapshotReady()
+    {
+        lock (Sync)
+        {
+            if (_snapshot is not null && _snapshot.Items.Count > 0)
+            {
+                return true;
+            }
+        }
+
+        string refreshMessage = Refresh();
+        return !refreshMessage.Contains("غير جاهز", StringComparison.Ordinal) &&
+               !refreshMessage.Contains("لا توجد صفحة", StringComparison.Ordinal) &&
+               !refreshMessage.Contains("ليس ضمن سياق ويب", StringComparison.Ordinal) &&
+               !refreshMessage.Contains("لم يتم العثور", StringComparison.Ordinal);
+    }
+
+    private static string GetCurrentSummaryText()
+    {
+        if (_snapshot is null || _snapshot.Items.Count == 0 || _currentIndex < 0)
+        {
+            return string.Empty;
+        }
+
+        return _snapshot.Items[_currentIndex].Summary ?? string.Empty;
+    }
+
+    private static int FindNextWordStart(string text, int offset)
+    {
+        int index = Math.Max(offset, 0);
+        while (index < text.Length && !char.IsLetterOrDigit(text[index]))
+        {
+            index++;
+        }
+
+        return index < text.Length ? index : -1;
+    }
+
+    private static int FindPreviousWordStart(string text, int offset)
+    {
+        int index = Math.Min(offset - 1, text.Length - 1);
+        while (index >= 0 && !char.IsLetterOrDigit(text[index]))
+        {
+            index--;
+        }
+
+        if (index < 0)
+        {
+            return -1;
+        }
+
+        while (index > 0 && char.IsLetterOrDigit(text[index - 1]))
+        {
+            index--;
+        }
+
+        return index;
+    }
+
+    private static int FindWordEnd(string text, int start)
+    {
+        int index = start;
+        while (index < text.Length && char.IsLetterOrDigit(text[index]))
+        {
+            index++;
+        }
+
+        return index;
+    }
+
+    private static string DescribeCharacter(char character) =>
+        character switch
+        {
+            ' ' => "مسافة",
+            '\t' => "جدولة",
+            _ => character.ToString()
+        };
 
     private static string FocusBufferItem(BufferItem item)
     {

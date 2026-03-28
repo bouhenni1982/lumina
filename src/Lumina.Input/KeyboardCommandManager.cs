@@ -12,6 +12,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private const int WmSysKeyDown = 0x0104;
     private const int WmSysKeyUp = 0x0105;
     private const int WmQuit = 0x0012;
+    private const uint LlkhfExtended = 0x01;
 
     private const uint VkInsert = 0x2D;
     private const uint VkShift = 0x10;
@@ -122,7 +123,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _moveToStartOfLine;
     private readonly Action _moveToEndOfLine;
     private readonly Action _sayAllFromReviewCursor;
-    private readonly Action<string> _announceBrowserMode;
+    private readonly Action<string> _speakBrowserMessage;
 
     private readonly HookProc _hookProc;
     private Thread? _messageLoopThread;
@@ -200,7 +201,7 @@ public sealed class KeyboardCommandManager : IDisposable
         Action moveToStartOfLine,
         Action moveToEndOfLine,
         Action sayAllFromReviewCursor,
-        Action<string> announceBrowserMode)
+        Action<string> speakBrowserMessage)
     {
         _speakCurrentFocus = speakCurrentFocus;
         _repeatLastSpeech = repeatLastSpeech;
@@ -265,7 +266,7 @@ public sealed class KeyboardCommandManager : IDisposable
         _moveToStartOfLine = moveToStartOfLine;
         _moveToEndOfLine = moveToEndOfLine;
         _sayAllFromReviewCursor = sayAllFromReviewCursor;
-        _announceBrowserMode = announceBrowserMode;
+        _speakBrowserMessage = speakBrowserMessage;
         _hookProc = HookCallback;
     }
 
@@ -346,6 +347,7 @@ public sealed class KeyboardCommandManager : IDisposable
         bool isKeyUp = message is WmKeyUp or WmSysKeyUp;
         KbdLlHookStruct keyInfo = Marshal.PtrToStructure<KbdLlHookStruct>(lParam);
         uint vkCode = keyInfo.vkCode;
+        bool isExtendedNavigationKey = (keyInfo.flags & LlkhfExtended) != 0;
 
         if (vkCode == VkInsert)
         {
@@ -379,7 +381,7 @@ public sealed class KeyboardCommandManager : IDisposable
                 string modeText = _browserBrowseMode
                     ? "تم تفعيل وضع التصفح."
                     : "تم تفعيل وضع التركيز.";
-                ThreadPool.QueueUserWorkItem(_ => _announceBrowserMode(modeText));
+                ThreadPool.QueueUserWorkItem(_ => _speakBrowserMessage(modeText));
                 return (IntPtr)1;
             }
 
@@ -392,6 +394,18 @@ public sealed class KeyboardCommandManager : IDisposable
             }
 
             if (TryHandleScreenReaderCommand(vkCode, shiftDown))
+            {
+                return (IntPtr)1;
+            }
+        }
+
+        if (!_insertDown &&
+            !altDown &&
+            !winDown &&
+            !_textReviewMode &&
+            IsBrowserArrowReadingContext(vkCode, isExtendedNavigationKey))
+        {
+            if (TryHandleBrowserArrowReading(vkCode, controlDown))
             {
                 return (IntPtr)1;
             }
@@ -419,7 +433,7 @@ public sealed class KeyboardCommandManager : IDisposable
             !_browserBrowseMode)
         {
             _browserBrowseMode = true;
-            ThreadPool.QueueUserWorkItem(_ => _announceBrowserMode("تم الرجوع إلى وضع التصفح."));
+            ThreadPool.QueueUserWorkItem(_ => _speakBrowserMessage("تم الرجوع إلى وضع التصفح."));
             return (IntPtr)1;
         }
 
@@ -562,6 +576,28 @@ public sealed class KeyboardCommandManager : IDisposable
         return true;
     }
 
+    private bool TryHandleBrowserArrowReading(uint vkCode, bool controlDown)
+    {
+        string? text = (vkCode, controlDown) switch
+        {
+            (VkUp, false) => BrowserVirtualBuffer.ReadPreviousLine(),
+            (VkDown, false) => BrowserVirtualBuffer.ReadNextLine(),
+            (VkLeft, false) => BrowserVirtualBuffer.ReadPreviousCharacter(),
+            (VkRight, false) => BrowserVirtualBuffer.ReadNextCharacter(),
+            (VkLeft, true) => BrowserVirtualBuffer.ReadPreviousWord(),
+            (VkRight, true) => BrowserVirtualBuffer.ReadNextWord(),
+            _ => null
+        };
+
+        if (text is null)
+        {
+            return false;
+        }
+
+        ThreadPool.QueueUserWorkItem(_ => _speakBrowserMessage(text));
+        return true;
+    }
+
     private bool IsBrowserNavigationContext()
     {
         if (!_browserBrowseMode)
@@ -587,6 +623,16 @@ public sealed class KeyboardCommandManager : IDisposable
         }
 
         return FocusSnapshotReader.IsBrowserContext(focused);
+    }
+
+    private bool IsBrowserArrowReadingContext(uint vkCode, bool isExtendedNavigationKey)
+    {
+        if (!_browserBrowseMode || !isExtendedNavigationKey || !IsBrowserContext())
+        {
+            return false;
+        }
+
+        return vkCode is VkUp or VkDown or VkLeft or VkRight;
     }
 
     private static bool IsKeyCurrentlyDown(uint virtualKey) => (GetAsyncKeyState((int)virtualKey) & 0x8000) != 0;
