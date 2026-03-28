@@ -64,6 +64,10 @@ function on_focus_changed(event)
     text = "مجموعة " .. name
   elseif text == nil and event.role == "pane" then
     text = "جزء " .. name
+  elseif text == nil and event.role == "toolbar" then
+    text = "شريط أدوات " .. name
+  elseif text == nil and event.role == "statusbar" then
+    text = "شريط حالة " .. name
   elseif text == nil and event.role == "document" then
     text = "مستند " .. name
   end
