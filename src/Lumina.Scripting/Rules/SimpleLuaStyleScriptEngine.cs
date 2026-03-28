@@ -32,6 +32,13 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
             {
                 string action = table["action"]?.ToString() ?? "none";
                 string text = table["text"]?.ToString() ?? string.Empty;
+                if (action == "speak" && IsCorruptedLuaSpeech(text))
+                {
+                    ErrorLogger.LogWarning(
+                        nameof(SimpleLuaStyleScriptEngine),
+                        $"تم تجاهل نص Lua مشوه للتطبيق {screenEvent.Node.SourceProcess} والرجوع إلى النطق الاحتياطي.");
+                    return BuildFallbackSpeech(screenEvent);
+                }
 
                 return new SpeechRequest(
                     Text: action == "speak" ? text : string.Empty,
@@ -188,6 +195,28 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
             Text: text,
             Priority: screenEvent.Priority,
             Interrupt: true);
+    }
+
+    private static bool IsCorruptedLuaSpeech(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        if (text.Contains("????", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        int questionMarks = text.Count(character => character == '?');
+        if (questionMarks < 3)
+        {
+            return false;
+        }
+
+        bool hasArabic = text.Any(character => character is >= '\u0600' and <= '\u06FF');
+        return !hasArabic && questionMarks >= Math.Max(text.Length / 5, 3);
     }
 
     private static string BuildLiveRegionSpeech(AccessibleNode node)
