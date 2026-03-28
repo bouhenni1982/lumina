@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
@@ -78,6 +79,27 @@ public static class ErrorLogger
         {
             LogError(nameof(ErrorLogger), "تعذر تحليل آخر خطأ مسجل.", exception);
             return "تعذر قراءة آخر خطأ من ملف السجل.";
+        }
+    }
+
+    public static string OpenLogDirectory()
+    {
+        try
+        {
+            string directory = GetLogDirectory();
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = directory,
+                UseShellExecute = true
+            });
+
+            LogInfo(nameof(ErrorLogger), $"تم فتح مجلد السجلات: {directory}");
+            return "تم فتح مجلد السجلات.";
+        }
+        catch (Exception exception)
+        {
+            LogError(nameof(ErrorLogger), "تعذر فتح مجلد السجلات.", exception);
+            return "تعذر فتح مجلد السجلات.";
         }
     }
 
