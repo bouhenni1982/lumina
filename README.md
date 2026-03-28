@@ -51,6 +51,10 @@ Lumina هو مشروع قارئ شاشة حديث مخصص لنظام Windows 10
 
 - [docs/commands-ar.md](/d:/flutterProjects/lumina/docs/commands-ar.md)
 
+خطة اختبار عملية:
+
+- [docs/test-plan-ar.md](/d:/flutterProjects/lumina/docs/test-plan-ar.md)
+
 ## البناء عبر GitHub Actions فقط
 
 لا تحتاج إلى أي متطلبات بناء محلية على جهازك.
