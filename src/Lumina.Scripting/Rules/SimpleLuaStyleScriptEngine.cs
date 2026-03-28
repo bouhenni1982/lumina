@@ -6,21 +6,20 @@ namespace Lumina.Scripting.Rules;
 
 public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
 {
-    private readonly Lua _lua = new();
-    private readonly string _scriptPath;
-    private bool _loaded;
+    private readonly Dictionary<string, Lua> _luaStates = new(StringComparer.OrdinalIgnoreCase);
+    private readonly string _scriptsDirectory;
 
     public SimpleLuaStyleScriptEngine()
     {
-        _scriptPath = ResolveScriptPath();
+        _scriptsDirectory = ResolveScriptsDirectory();
     }
 
     public SpeechRequest Handle(ScreenEvent screenEvent)
     {
-        EnsureScriptLoaded();
+        Lua lua = GetOrCreateState(screenEvent.Node.SourceProcess);
 
-        LuaTable eventTable = BuildEventTable(screenEvent);
-        object[]? results = _lua.GetFunction("on_focus_changed")?.Call(eventTable);
+        LuaTable eventTable = BuildEventTable(lua, screenEvent);
+        object[]? results = lua.GetFunction("on_focus_changed")?.Call(eventTable);
 
         if (results is not null &&
             results.Length > 0 &&
@@ -40,42 +39,56 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
 
     public void Dispose()
     {
-        _lua.Dispose();
+        foreach (Lua lua in _luaStates.Values)
+        {
+            lua.Dispose();
+        }
     }
 
-    private void EnsureScriptLoaded()
+    private Lua GetOrCreateState(string processName)
     {
-        if (_loaded)
+        string normalizedProcessName = string.IsNullOrWhiteSpace(processName)
+            ? "default"
+            : processName.ToLowerInvariant();
+
+        if (_luaStates.TryGetValue(normalizedProcessName, out Lua? existingLua))
         {
-            return;
+            return existingLua;
         }
 
-        if (File.Exists(_scriptPath))
+        Lua lua = new();
+        string defaultScriptPath = Path.Combine(_scriptsDirectory, "focus_profile.lua");
+        if (File.Exists(defaultScriptPath))
         {
-            _lua.DoFile(_scriptPath);
-            _loaded = true;
-            return;
+            lua.DoFile(defaultScriptPath);
         }
 
-        _loaded = true;
+        string appScriptPath = Path.Combine(_scriptsDirectory, "apps", $"{normalizedProcessName}.lua");
+        if (File.Exists(appScriptPath))
+        {
+            lua.DoFile(appScriptPath);
+        }
+
+        _luaStates[normalizedProcessName] = lua;
+        return lua;
     }
 
-    private static string ResolveScriptPath()
+    private static string ResolveScriptsDirectory()
     {
         string baseDirectory = AppContext.BaseDirectory;
         string[] candidates =
         [
-            Path.Combine(baseDirectory, "scripts", "focus_profile.lua"),
-            Path.Combine(Directory.GetCurrentDirectory(), "scripts", "focus_profile.lua"),
-            Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "scripts", "focus_profile.lua")
+            Path.Combine(baseDirectory, "scripts"),
+            Path.Combine(Directory.GetCurrentDirectory(), "scripts"),
+            Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "scripts")
         ];
 
-        return candidates.FirstOrDefault(File.Exists) ?? candidates[0];
+        return candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];
     }
 
-    private LuaTable BuildEventTable(ScreenEvent screenEvent)
+    private static LuaTable BuildEventTable(Lua lua, ScreenEvent screenEvent)
     {
-        LuaTable eventTable = (LuaTable)_lua.DoString("return {}")[0]!;
+        LuaTable eventTable = (LuaTable)lua.DoString("return {}")[0]!;
         eventTable["type"] = screenEvent.EventType;
         eventTable["name"] = screenEvent.Node.Name;
         eventTable["role"] = screenEvent.Node.Role;

@@ -6,7 +6,7 @@
     <PackageReference Include="NLua" Version="1.7.6" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\scripts\focus_profile.lua" Link="scripts\focus_profile.lua">
+    <None Include="..\..\scripts\**\*.lua" Link="scripts\%(RecursiveDir)%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
