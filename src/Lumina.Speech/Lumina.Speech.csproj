@@ -3,6 +3,6 @@
     <ProjectReference Include="..\Lumina.Core\Lumina.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="System.Speech" />
+    <PackageReference Include="System.Speech" Version="10.0.5" />
   </ItemGroup>
 </Project>
