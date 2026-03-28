@@ -18,7 +18,7 @@ try
     Console.WriteLine("كرر Insert+Tab بسرعة لقراءة تفاصيل تشخيصية أعمق عن العنصر الحالي.");
     Console.WriteLine("Insert+L لإعادة آخر رسالة منطوقة.");
     Console.WriteLine("Insert+I لتبديل Inspector.");
-    Console.WriteLine("Insert+T لقراءة عنوان الصفحة الحالية في المتصفح.");
+    Console.WriteLine("Insert+T لقراءة عنوان الصفحة الحالية في المتصفح، وShift+Insert+T لقراءة سياق الجدول الحالي.");
     Console.WriteLine("Insert+Home لقراءة ملخص النافذة الحالية.");
     Console.WriteLine("Insert+End لقراءة حالة العنصر الحالي.");
     Console.WriteLine("Insert+W لقراءة ملخص ويب سريع للعنصر الحالي.");
@@ -47,7 +47,7 @@ try
     Console.WriteLine("داخل وضع المراجعة: الأسهم للحرف والسطر وCtrl+الأسهم للكلمة والفقرة وHome/End لبداية ونهاية السطر.");
     Console.WriteLine("داخل المتصفح: H/K/E/B/X/D/T/L/A/F للتنقل بين العناوين والروابط والحقول والأزرار وخانات الاختيار والمعالم والجداول والقوائم والحوارات وعناصر النماذج.");
     Console.WriteLine("Insert+Space داخل المتصفح للتبديل بين وضع التصفح ووضع التركيز. وEscape للرجوع إلى وضع التصفح.");
-    Console.WriteLine("داخل الجداول: Insert+T لقراءة سياق الجدول، وCtrl+Left/Right وCtrl+Up/Down للتنقل بين الخلايا عند الإمكان.");
+    Console.WriteLine("داخل الجداول: Shift+Insert+T لقراءة سياق الجدول الحالي.");
     Console.WriteLine("اضغط Ctrl+C للإيقاف.");
 
     var speechService = new SapiSpeechService();

@@ -33,12 +33,12 @@
 - `A / Shift+A`
 - `F / Shift+F`
 - `Insert+T`
+- `Shift+Insert+T`
 - `Insert+W`
 - `Insert+S`
 - `Insert+R`
 - `Insert+B`
 - `Insert+Y`
-- `Ctrl+Left / Right / Up / Down` داخل الجداول
 
 ## مرحلة 1: التصفح الأساسي
 
@@ -125,9 +125,7 @@
 
 جرّب:
 - `T` للوصول إلى الجدول
-- `Insert+T` لقراءة سياق الجدول
-- `Ctrl+Left / Ctrl+Right` للتنقل الأفقي
-- `Ctrl+Up / Ctrl+Down` للتنقل العمودي
+- `Shift+Insert+T` لقراءة سياق الجدول
 
 دوّن:
 - هل يعلن اسم الجدول؟

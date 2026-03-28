@@ -37,6 +37,7 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
   - `Insert+L` لإعادة آخر نطق
   - `Insert+I` لإظهار أو إخفاء Inspector
   - `Insert+T` لقراءة عنوان الصفحة أو النافذة الحالية في المتصفح
+  - `Shift+Insert+T` لقراءة سياق الجدول الحالي داخل المتصفح
   - `Insert+Home` لقراءة ملخص النافذة الحالية
   - `Insert+End` لقراءة حالة العنصر الحالي
   - `Insert+W` لقراءة ملخص ويب للعنصر الحالي
