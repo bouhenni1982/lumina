@@ -20,6 +20,65 @@ public static class FocusSnapshotReader
         return $"{role} {name}";
     }
 
+    public static string ReadCurrentElementDetails()
+    {
+        AutomationElement? element = GetFocusedElement();
+        if (element is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
+        string name = ResolveName(element);
+        string role = ResolveRole(element);
+        string process = ResolveProcessName(element);
+        string value = TryReadValue(element);
+        string windowTitle = ResolveWindowTitle(element);
+        string localizedRole = element.Current.LocalizedControlType ?? string.Empty;
+        string helpText = element.Current.HelpText ?? string.Empty;
+        string automationId = element.Current.AutomationId ?? string.Empty;
+
+        List<string> segments =
+        [
+            $"العنصر الحالي {name}",
+            $"النوع {role}"
+        ];
+
+        if (!string.IsNullOrWhiteSpace(localizedRole) &&
+            !string.Equals(localizedRole, role, StringComparison.OrdinalIgnoreCase))
+        {
+            segments.Add($"الوصف المحلي {localizedRole}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            segments.Add($"القيمة {value}");
+        }
+
+        if (IsBrowserContext(element))
+        {
+            segments.Add($"دور الويب {ResolveWebSemanticRole(element)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(windowTitle))
+        {
+            segments.Add($"النافذة {windowTitle}");
+        }
+
+        segments.Add($"العملية {process}");
+
+        if (!string.IsNullOrWhiteSpace(automationId))
+        {
+            segments.Add($"معرف الأتمتة {automationId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(helpText))
+        {
+            segments.Add($"تلميح {helpText}");
+        }
+
+        return string.Join(". ", segments);
+    }
+
     public static string ReadCurrentPageTitle()
     {
         AutomationElement? element = GetFocusedElement();

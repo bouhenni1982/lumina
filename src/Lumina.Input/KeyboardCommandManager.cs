@@ -23,6 +23,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkL = 0x4C;
     private const uint VkI = 0x49;
     private const uint VkReturn = 0x0D;
+    private const uint VkTab = 0x09;
     private const uint VkT = 0x54;
     private const uint VkW = 0x57;
     private const uint VkS = 0x53;
@@ -42,6 +43,7 @@ public sealed class KeyboardCommandManager : IDisposable
 
     private readonly Action _speakCurrentFocus;
     private readonly Action _repeatLastSpeech;
+    private readonly Action _speakCurrentElementDetails;
     private readonly Action _toggleInspector;
     private readonly Action _speakPageTitle;
     private readonly Action _speakWebSummary;
@@ -80,6 +82,7 @@ public sealed class KeyboardCommandManager : IDisposable
     public KeyboardCommandManager(
         Action speakCurrentFocus,
         Action repeatLastSpeech,
+        Action speakCurrentElementDetails,
         Action toggleInspector,
         Action speakPageTitle,
         Action speakWebSummary,
@@ -109,6 +112,7 @@ public sealed class KeyboardCommandManager : IDisposable
     {
         _speakCurrentFocus = speakCurrentFocus;
         _repeatLastSpeech = repeatLastSpeech;
+        _speakCurrentElementDetails = speakCurrentElementDetails;
         _toggleInspector = toggleInspector;
         _speakPageTitle = speakPageTitle;
         _speakWebSummary = speakWebSummary;
@@ -271,6 +275,7 @@ public sealed class KeyboardCommandManager : IDisposable
         {
             VkF => _speakCurrentFocus,
             VkL => _repeatLastSpeech,
+            VkTab => _speakCurrentElementDetails,
             VkI => _toggleInspector,
             VkT => _speakPageTitle,
             VkW => _speakWebSummary,
