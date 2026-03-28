@@ -1,0 +1,37 @@
+name: windows-build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore solution
+        run: dotnet restore .\Lumina.sln
+
+      - name: Build solution
+        run: dotnet build .\Lumina.sln --configuration Release --no-restore
+
+      - name: Publish Windows host
+        run: dotnet publish .\src\Lumina.Host\Lumina.Host.csproj --configuration Release --output .\artifacts\Lumina.Host --no-build
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumina-windows
+          path: .\artifacts\Lumina.Host

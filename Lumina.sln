@@ -1,0 +1,45 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lumina.Core", "src\Lumina.Core\Lumina.Core.csproj", "{1E8CF29A-7B62-4C2A-A1A0-75D96F7672D4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lumina.Accessibility", "src\Lumina.Accessibility\Lumina.Accessibility.csproj", "{67D10D3C-5F80-4766-9242-6184AF4177EF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lumina.Speech", "src\Lumina.Speech\Lumina.Speech.csproj", "{D698B913-2F79-4A08-95F4-0F65A3337EC8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lumina.Scripting", "src\Lumina.Scripting\Lumina.Scripting.csproj", "{A5642FB8-22D2-4F60-A2F8-70A15B58144B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lumina.Host", "src\Lumina.Host\Lumina.Host.csproj", "{6C20B37A-5450-4760-900C-5C7896D4E7A1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1E8CF29A-7B62-4C2A-A1A0-75D96F7672D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E8CF29A-7B62-4C2A-A1A0-75D96F7672D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E8CF29A-7B62-4C2A-A1A0-75D96F7672D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E8CF29A-7B62-4C2A-A1A0-75D96F7672D4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{67D10D3C-5F80-4766-9242-6184AF4177EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{67D10D3C-5F80-4766-9242-6184AF4177EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{67D10D3C-5F80-4766-9242-6184AF4177EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{67D10D3C-5F80-4766-9242-6184AF4177EF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D698B913-2F79-4A08-95F4-0F65A3337EC8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D698B913-2F79-4A08-95F4-0F65A3337EC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D698B913-2F79-4A08-95F4-0F65A3337EC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D698B913-2F79-4A08-95F4-0F65A3337EC8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A5642FB8-22D2-4F60-A2F8-70A15B58144B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A5642FB8-22D2-4F60-A2F8-70A15B58144B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A5642FB8-22D2-4F60-A2F8-70A15B58144B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A5642FB8-22D2-4F60-A2F8-70A15B58144B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6C20B37A-5450-4760-900C-5C7896D4E7A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C20B37A-5450-4760-900C-5C7896D4E7A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C20B37A-5450-4760-900C-5C7896D4E7A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C20B37A-5450-4760-900C-5C7896D4E7A1}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
