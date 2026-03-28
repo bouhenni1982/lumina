@@ -317,6 +317,38 @@ public static class FocusSnapshotReader
         return BuildWebSummary(element);
     }
 
+    public static string ReadCurrentMenuContext()
+    {
+        AutomationElement? element = GetFocusedElement();
+        if (element is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
+        if (!IsMenuLikeContext(element))
+        {
+            return "العنصر الحالي ليس داخل قائمة.";
+        }
+
+        return BuildMenuContextSummary(element);
+    }
+
+    public static string ReadCurrentSettingsContext()
+    {
+        AutomationElement? element = GetFocusedElement();
+        if (element is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
+        if (!IsSettingsLikeContext(element))
+        {
+            return "العنصر الحالي ليس داخل إعدادات معروفة.";
+        }
+
+        return BuildSettingsContextSummary(element);
+    }
+
     internal static string BuildWebSummary(AutomationElement element)
     {
         string semanticRole = ResolveWebSemanticRole(element);

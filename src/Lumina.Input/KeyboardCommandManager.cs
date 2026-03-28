@@ -21,8 +21,10 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkRWin = 0x5C;
 
     private const uint VkF = 0x46;
+    private const uint VkG = 0x47;
     private const uint VkL = 0x4C;
     private const uint VkI = 0x49;
+    private const uint VkM = 0x4D;
     private const uint VkReturn = 0x0D;
     private const uint VkTab = 0x09;
     private const uint VkT = 0x54;
@@ -53,6 +55,8 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _speakCurrentWindowSummary;
     private readonly Action _speakCurrentStatusSummary;
     private readonly Action _speakWebSummary;
+    private readonly Action _speakMenuContext;
+    private readonly Action _speakSettingsContext;
     private readonly Action _moveToNextHeading;
     private readonly Action _moveToPreviousHeading;
     private readonly Action _moveToNextLink;
@@ -100,6 +104,8 @@ public sealed class KeyboardCommandManager : IDisposable
         Action speakCurrentWindowSummary,
         Action speakCurrentStatusSummary,
         Action speakWebSummary,
+        Action speakMenuContext,
+        Action speakSettingsContext,
         Action moveToNextHeading,
         Action moveToPreviousHeading,
         Action moveToNextLink,
@@ -135,6 +141,8 @@ public sealed class KeyboardCommandManager : IDisposable
         _speakCurrentWindowSummary = speakCurrentWindowSummary;
         _speakCurrentStatusSummary = speakCurrentStatusSummary;
         _speakWebSummary = speakWebSummary;
+        _speakMenuContext = speakMenuContext;
+        _speakSettingsContext = speakSettingsContext;
         _moveToNextHeading = moveToNextHeading;
         _moveToPreviousHeading = moveToPreviousHeading;
         _moveToNextLink = moveToNextLink;
@@ -326,6 +334,8 @@ public sealed class KeyboardCommandManager : IDisposable
             VkHome => _speakCurrentWindowSummary,
             VkEnd => _speakCurrentStatusSummary,
             VkW => _speakWebSummary,
+            VkM => _speakMenuContext,
+            VkG => _speakSettingsContext,
             VkS => _summarizeCurrentPage,
             VkR => _refreshVirtualBuffer,
             VkB => _summarizeVirtualBuffer,

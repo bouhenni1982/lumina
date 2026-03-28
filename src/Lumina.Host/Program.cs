@@ -22,6 +22,8 @@ try
     Console.WriteLine("Insert+Home لقراءة ملخص النافذة الحالية.");
     Console.WriteLine("Insert+End لقراءة حالة العنصر الحالي.");
     Console.WriteLine("Insert+W لقراءة ملخص ويب سريع للعنصر الحالي.");
+    Console.WriteLine("Insert+M لقراءة مسار القائمة الحالية.");
+    Console.WriteLine("Insert+G لقراءة سياق الإعدادات الحالي.");
     Console.WriteLine("Insert+S لقراءة ملخص الصفحة الحالية.");
     Console.WriteLine("Insert+R لتحديث المخزن الظاهري للصفحة.");
     Console.WriteLine("Insert+B لملخص حالة المخزن الظاهري.");
@@ -81,6 +83,16 @@ try
         speakWebSummary: () =>
         {
             string text = FocusSnapshotReader.ReadCurrentWebSummary();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        speakMenuContext: () =>
+        {
+            string text = FocusSnapshotReader.ReadCurrentMenuContext();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        speakSettingsContext: () =>
+        {
+            string text = FocusSnapshotReader.ReadCurrentSettingsContext();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         moveToNextHeading: () =>
