@@ -16,9 +16,22 @@ public static class FocusSnapshotReader
         }
 
         string name = ResolveName(element);
-        string role = ResolveRole(element);
+        string role = DescribeRole(element);
 
-        return $"{role} {name}";
+        string text = $"{role} {name}";
+        string? stateSummary = ResolveStateSummary(element);
+        if (!string.IsNullOrWhiteSpace(stateSummary))
+        {
+            text = $"{text}. {stateSummary}";
+        }
+
+        string? shortcutKey = ResolveShortcutKey(element);
+        if (!string.IsNullOrWhiteSpace(shortcutKey))
+        {
+            text = $"{text}. اختصار {shortcutKey}";
+        }
+
+        return text;
     }
 
     public static string ReadCurrentElementDetails()
@@ -30,13 +43,15 @@ public static class FocusSnapshotReader
         }
 
         string name = ResolveName(element);
-        string role = ResolveRole(element);
+        string role = DescribeRole(element);
         string process = ResolveProcessName(element);
         string value = TryReadValue(element);
         string windowTitle = ResolveWindowTitle(element);
         string localizedRole = element.Current.LocalizedControlType ?? string.Empty;
         string helpText = element.Current.HelpText ?? string.Empty;
         string automationId = element.Current.AutomationId ?? string.Empty;
+        string? shortcutKey = ResolveShortcutKey(element);
+        string? stateSummary = ResolveStateSummary(element);
 
         List<string> segments =
         [
@@ -55,9 +70,24 @@ public static class FocusSnapshotReader
             segments.Add($"القيمة {value}");
         }
 
+        if (!string.IsNullOrWhiteSpace(stateSummary))
+        {
+            segments.Add($"الحالة {stateSummary}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(shortcutKey))
+        {
+            segments.Add($"الاختصار {shortcutKey}");
+        }
+
         if (IsBrowserContext(element))
         {
             segments.Add($"دور الويب {ResolveWebSemanticRole(element)}");
+        }
+
+        if (IsSettingsLikeContext(element))
+        {
+            segments.Add(BuildSettingsContextSummary(element));
         }
 
         if (!string.IsNullOrWhiteSpace(windowTitle))
@@ -90,12 +120,11 @@ public static class FocusSnapshotReader
 
         string className = element.Current.ClassName ?? string.Empty;
         string frameworkId = element.Current.FrameworkId ?? string.Empty;
-        string acceleratorKey = element.Current.AcceleratorKey ?? string.Empty;
-        string accessKey = element.Current.AccessKey ?? string.Empty;
         string itemStatus = element.Current.ItemStatus ?? string.Empty;
         string itemType = element.Current.ItemType ?? string.Empty;
         string patterns = ResolveSupportedPatterns(element);
         Rect bounds = element.Current.BoundingRectangle;
+        string? shortcutKey = ResolveShortcutKey(element);
 
         List<string> segments =
         [
@@ -117,15 +146,7 @@ public static class FocusSnapshotReader
             segments.Add($"حالة العنصر {itemStatus}");
         }
 
-        if (!string.IsNullOrWhiteSpace(accessKey))
-        {
-            segments.Add($"مفتاح الوصول {accessKey}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(acceleratorKey))
-        {
-            segments.Add($"مفتاح التسريع {acceleratorKey}");
-        }
+        AddIfPresent(segments, shortcutKey, "اختصار");
 
         if (!bounds.IsEmpty)
         {
@@ -182,7 +203,7 @@ public static class FocusSnapshotReader
         string process = ResolveProcessName(window);
         string className = NormalizeValue(window.Current.ClassName ?? string.Empty, "غير معروف");
         string framework = NormalizeValue(window.Current.FrameworkId ?? string.Empty, "غير معروف");
-        string focusedRole = ResolveRole(element);
+        string focusedRole = DescribeRole(element);
         string focusedName = ResolveName(element);
 
         List<string> segments =
@@ -193,6 +214,11 @@ public static class FocusSnapshotReader
             $"الصنف {className}",
             $"العنصر النشط {focusedRole} {focusedName}"
         ];
+
+        if (IsSettingsLikeContext(element))
+        {
+            segments.Add(BuildSettingsContextSummary(element));
+        }
 
         return string.Join(". ", segments);
     }
@@ -206,10 +232,12 @@ public static class FocusSnapshotReader
         }
 
         string name = ResolveName(element);
-        string role = ResolveRole(element);
+        string role = DescribeRole(element);
         string value = TryReadValue(element);
         string helpText = element.Current.HelpText ?? string.Empty;
         string itemStatus = element.Current.ItemStatus ?? string.Empty;
+        string? stateSummary = ResolveStateSummary(element);
+        string? shortcutKey = ResolveShortcutKey(element);
 
         List<string> segments =
         [
@@ -230,9 +258,24 @@ public static class FocusSnapshotReader
             segments.Add($"حالة العنصر {itemStatus}");
         }
 
+        if (!string.IsNullOrWhiteSpace(stateSummary))
+        {
+            segments.Add($"الخلاصة {stateSummary}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(shortcutKey))
+        {
+            segments.Add($"الاختصار {shortcutKey}");
+        }
+
         if (!string.IsNullOrWhiteSpace(helpText))
         {
             segments.Add($"تلميح {helpText}");
+        }
+
+        if (IsSettingsLikeContext(element))
+        {
+            segments.Add(BuildSettingsContextSummary(element));
         }
 
         return string.Join(". ", segments);
@@ -364,6 +407,35 @@ public static class FocusSnapshotReader
         element.Current.ControlType?.ProgrammaticName?.Replace("ControlType.", "").ToLowerInvariant()
         ?? "control";
 
+    internal static string DescribeRole(AutomationElement element)
+    {
+        string role = ResolveRole(element);
+        return role switch
+        {
+            "menu" => "قائمة",
+            "menuitem" => "عنصر قائمة",
+            "button" => "زر",
+            "edit" => "حقل تحرير",
+            "checkbox" => "خانة اختيار",
+            "radiobutton" => "زر اختيار",
+            "combobox" => "مربع خيارات",
+            "tabitem" => "علامة تبويب",
+            "tab" => "تبويب",
+            "listitem" => "عنصر قائمة",
+            "list" => "قائمة",
+            "treeitem" => "عنصر شجرة",
+            "tree" => "شجرة",
+            "group" => "مجموعة",
+            "pane" => "جزء",
+            "document" => "مستند",
+            "text" => "نص",
+            "hyperlink" => "رابط",
+            "slider" => "منزلق",
+            "progressbar" => "شريط تقدم",
+            _ => role
+        };
+    }
+
     internal static string ResolveProcessName(AutomationElement element)
     {
         try
@@ -411,6 +483,189 @@ public static class FocusSnapshotReader
 
     internal static string NormalizeValue(string value, string fallback) =>
         string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+    internal static string? ResolveShortcutKey(AutomationElement element)
+    {
+        string acceleratorKey = NormalizeOptionalValue(element.Current.AcceleratorKey);
+        string accessKey = NormalizeOptionalValue(element.Current.AccessKey);
+
+        if (string.IsNullOrWhiteSpace(acceleratorKey))
+        {
+            return accessKey;
+        }
+
+        if (string.IsNullOrWhiteSpace(accessKey) ||
+            string.Equals(acceleratorKey, accessKey, StringComparison.OrdinalIgnoreCase))
+        {
+            return acceleratorKey;
+        }
+
+        return $"{acceleratorKey} / {accessKey}";
+    }
+
+    internal static string? ResolveStateSummary(AutomationElement element)
+    {
+        List<string> states = [];
+
+        if (element.TryGetCurrentPattern(TogglePattern.Pattern, out object? togglePatternObject))
+        {
+            string? toggleState = ((TogglePattern)togglePatternObject).Current.ToggleState switch
+            {
+                ToggleState.On => "محدد",
+                ToggleState.Off => "غير محدد",
+                ToggleState.Indeterminate => "حالة غير محسومة",
+                _ => null
+            };
+
+            AddDistinctIfPresent(states, toggleState);
+        }
+
+        if (element.TryGetCurrentPattern(SelectionItemPattern.Pattern, out object? selectionItemPatternObject))
+        {
+            string selectionState = ((SelectionItemPattern)selectionItemPatternObject).Current.IsSelected
+                ? "محدد"
+                : "غير محدد";
+            AddDistinctIfPresent(states, selectionState);
+        }
+
+        if (element.TryGetCurrentPattern(ExpandCollapsePattern.Pattern, out object? expandCollapsePatternObject))
+        {
+            string? expandState = ((ExpandCollapsePattern)expandCollapsePatternObject).Current.ExpandCollapseState switch
+            {
+                ExpandCollapseState.Expanded => "موسع",
+                ExpandCollapseState.Collapsed => "مطوي",
+                ExpandCollapseState.PartiallyExpanded => "موسع جزئيا",
+                ExpandCollapseState.LeafNode => "بدون عناصر فرعية",
+                _ => null
+            };
+
+            AddDistinctIfPresent(states, expandState);
+        }
+
+        AddDistinctIfPresent(states, NormalizeOptionalValue(element.Current.ItemStatus));
+
+        if (!element.Current.IsEnabled)
+        {
+            AddDistinctIfPresent(states, "معطل");
+        }
+
+        return states.Count == 0 ? null : string.Join("، ", states);
+    }
+
+    internal static bool IsSettingsLikeContext(AutomationElement element)
+    {
+        string process = ResolveProcessName(element);
+        string windowTitle = ResolveWindowTitle(element);
+        string className = element.Current.ClassName ?? string.Empty;
+        string itemType = element.Current.ItemType ?? string.Empty;
+        string automationId = element.Current.AutomationId ?? string.Empty;
+        bool titleOrMetadataSuggestsSettings =
+            windowTitle.Contains("settings", StringComparison.OrdinalIgnoreCase) ||
+            windowTitle.Contains("الإعدادات", StringComparison.OrdinalIgnoreCase) ||
+            className.Contains("settings", StringComparison.OrdinalIgnoreCase) ||
+            itemType.Contains("settings", StringComparison.OrdinalIgnoreCase) ||
+            automationId.Contains("settings", StringComparison.OrdinalIgnoreCase);
+
+        return process == "systemsettings" ||
+               (process == "applicationframehost" && titleOrMetadataSuggestsSettings) ||
+               titleOrMetadataSuggestsSettings;
+    }
+
+    internal static string BuildSettingsContextSummary(AutomationElement element)
+    {
+        AutomationElement? group = FindAncestor(
+            element,
+            current => current.Current.ControlType == ControlType.Group ||
+                       current.Current.ControlType == ControlType.TabItem ||
+                       current.Current.ControlType == ControlType.Pane);
+
+        List<string> segments = [];
+
+        if (group is not null)
+        {
+            string groupName = ResolveName(group);
+            string groupRole = DescribeRole(group);
+            if (!string.IsNullOrWhiteSpace(groupName) && groupName != "عنصر غير مسمى")
+            {
+                segments.Add($"{groupRole} الحالية {groupName}");
+            }
+        }
+
+        AutomationElement? tabItem = FindAncestor(
+            element,
+            current => current.Current.ControlType == ControlType.TabItem);
+
+        if (tabItem is not null)
+        {
+            segments.Add($"التبويب {ResolveName(tabItem)}");
+        }
+
+        AutomationElement scope = group ?? element;
+        int buttons = CountDescendants(scope, ControlType.Button);
+        int checkboxes = CountDescendants(scope, ControlType.CheckBox);
+        int radioButtons = CountDescendants(scope, ControlType.RadioButton);
+        int comboBoxes = CountDescendants(scope, ControlType.ComboBox);
+        int edits = CountDescendants(scope, ControlType.Edit);
+        int listItems = CountDescendants(scope, ControlType.ListItem);
+
+        List<string> counts = [];
+        AddCountIfAny(counts, buttons, "أزرار");
+        AddCountIfAny(counts, checkboxes, "خانات اختيار");
+        AddCountIfAny(counts, radioButtons, "أزرار اختيار");
+        AddCountIfAny(counts, comboBoxes, "مربعات خيارات");
+        AddCountIfAny(counts, edits, "حقول تحرير");
+        AddCountIfAny(counts, listItems, "عناصر قائمة");
+
+        if (counts.Count > 0)
+        {
+            segments.Add($"محتوى القسم {string.Join("، ", counts)}");
+        }
+
+        return segments.Count == 0
+            ? "ضمن سياق إعدادات"
+            : string.Join(". ", segments);
+    }
+
+    private static int CountDescendants(AutomationElement root, ControlType controlType)
+    {
+        try
+        {
+            return root.FindAll(
+                TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, controlType)).Count;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private static string NormalizeOptionalValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+
+    private static void AddIfPresent(List<string> segments, string? value, string prefix)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            segments.Add($"{prefix} {value}");
+        }
+    }
+
+    private static void AddDistinctIfPresent(List<string> values, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value) && !values.Contains(value, StringComparer.Ordinal))
+        {
+            values.Add(value);
+        }
+    }
+
+    private static void AddCountIfAny(List<string> counts, int count, string label)
+    {
+        if (count > 0)
+        {
+            counts.Add($"{label} {count}");
+        }
+    }
 
     internal static AutomationElement? FindAncestor(
         AutomationElement element,

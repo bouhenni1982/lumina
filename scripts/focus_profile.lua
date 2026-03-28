@@ -54,10 +54,16 @@ function on_focus_changed(event)
     include_value = true
   elseif text == nil and event.role == "tabitem" then
     text = "علامة تبويب " .. name
+  elseif text == nil and event.role == "tab" then
+    text = "تبويب " .. name
   elseif text == nil and event.role == "listitem" then
     text = "عنصر قائمة " .. name
   elseif text == nil and event.role == "treeitem" then
     text = "عنصر شجرة " .. name
+  elseif text == nil and event.role == "group" then
+    text = "مجموعة " .. name
+  elseif text == nil and event.role == "pane" then
+    text = "جزء " .. name
   elseif text == nil and event.role == "document" then
     text = "مستند " .. name
   end
