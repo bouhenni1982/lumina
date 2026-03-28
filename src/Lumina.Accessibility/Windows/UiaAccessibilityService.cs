@@ -31,6 +31,8 @@ public sealed class UiaAccessibilityService : IAccessibilityService
             ?? "control";
         string name = element.Current.Name ?? "Unnamed";
         string? value = null;
+        string? shortcutKey = ResolveShortcutKey(element);
+        string? stateSummary = ResolveStateSummary(element);
         string sourceApi = "UIA";
         string? hint = element.Current.HelpText;
 
@@ -107,6 +109,8 @@ public sealed class UiaAccessibilityService : IAccessibilityService
             Role: role,
             SemanticRole: browserAdaptation.SemanticRole,
             Value: value,
+            ShortcutKey: shortcutKey,
+            StateSummary: stateSummary,
             Hint: hint,
             ContextKind: browserAdaptation.ContextKind,
             SourceProcess: processName,
@@ -159,4 +163,94 @@ public sealed class UiaAccessibilityService : IAccessibilityService
 
         return string.Join(" | ", parts);
     }
+
+    private static string? ResolveShortcutKey(AutomationElement element)
+    {
+        string acceleratorKey = NormalizeMetadataValue(element.Current.AcceleratorKey);
+        string accessKey = NormalizeMetadataValue(element.Current.AccessKey);
+
+        if (string.IsNullOrWhiteSpace(acceleratorKey))
+        {
+            return accessKey;
+        }
+
+        if (string.IsNullOrWhiteSpace(accessKey) ||
+            string.Equals(acceleratorKey, accessKey, StringComparison.OrdinalIgnoreCase))
+        {
+            return acceleratorKey;
+        }
+
+        return $"{acceleratorKey} / {accessKey}";
+    }
+
+    private static string? ResolveStateSummary(AutomationElement element)
+    {
+        List<string> states = [];
+
+        if (element.TryGetCurrentPattern(TogglePattern.Pattern, out object? togglePatternObject))
+        {
+            string? toggleState = ((TogglePattern)togglePatternObject).Current.ToggleState switch
+            {
+                ToggleState.On => "محدد",
+                ToggleState.Off => "غير محدد",
+                ToggleState.Indeterminate => "حالة غير محسومة",
+                _ => null
+            };
+
+            if (!string.IsNullOrWhiteSpace(toggleState))
+            {
+                states.Add(toggleState);
+            }
+        }
+
+        if (element.TryGetCurrentPattern(SelectionItemPattern.Pattern, out object? selectionItemPatternObject))
+        {
+            string selectionState = ((SelectionItemPattern)selectionItemPatternObject).Current.IsSelected
+                ? "محدد"
+                : "غير محدد";
+
+            if (!states.Contains(selectionState, StringComparer.Ordinal))
+            {
+                states.Add(selectionState);
+            }
+        }
+
+        if (element.TryGetCurrentPattern(ExpandCollapsePattern.Pattern, out object? expandCollapsePatternObject))
+        {
+            string? expandState = ((ExpandCollapsePattern)expandCollapsePatternObject).Current.ExpandCollapseState switch
+            {
+                ExpandCollapseState.Expanded => "موسع",
+                ExpandCollapseState.Collapsed => "مطوي",
+                ExpandCollapseState.PartiallyExpanded => "موسع جزئيا",
+                ExpandCollapseState.LeafNode => "بدون عناصر فرعية",
+                _ => null
+            };
+
+            if (!string.IsNullOrWhiteSpace(expandState))
+            {
+                states.Add(expandState);
+            }
+        }
+
+        string itemStatus = NormalizeMetadataValue(element.Current.ItemStatus);
+        if (!string.IsNullOrWhiteSpace(itemStatus))
+        {
+            states.Add(itemStatus);
+        }
+
+        if (!element.Current.IsEnabled)
+        {
+            states.Add("معطل");
+        }
+
+        if (states.Count == 0)
+        {
+            return null;
+        }
+
+        return string.Join("، ", states.Distinct(StringComparer.Ordinal));
+    }
+
+    private static string? NormalizeMetadataValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

@@ -7,6 +7,8 @@ public sealed record AccessibleNode(
     string Role,
     string? SemanticRole,
     string? Value,
+    string? ShortcutKey,
+    string? StateSummary,
     string? Hint,
     string? ContextKind,
     string SourceProcess,

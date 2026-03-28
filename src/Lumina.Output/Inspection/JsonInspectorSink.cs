@@ -38,6 +38,8 @@ public sealed class JsonInspectorSink : IInspectorSink
                 screenEvent.Node.Role,
                 screenEvent.Node.SemanticRole,
                 screenEvent.Node.Value,
+                screenEvent.Node.ShortcutKey,
+                screenEvent.Node.StateSummary,
                 screenEvent.Node.Hint,
                 screenEvent.Node.ContextKind,
                 screenEvent.Node.SourceProcess

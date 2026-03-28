@@ -93,6 +93,8 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
         eventTable["name"] = screenEvent.Node.Name;
         eventTable["role"] = screenEvent.Node.Role;
         eventTable["value"] = screenEvent.Node.Value;
+        eventTable["shortcut"] = screenEvent.Node.ShortcutKey;
+        eventTable["state"] = screenEvent.Node.StateSummary;
         eventTable["hint"] = screenEvent.Node.Hint;
         eventTable["source_api"] = screenEvent.Node.SourceApi;
         eventTable["semantic_role"] = screenEvent.Node.SemanticRole;
@@ -120,6 +122,16 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
         if (!string.IsNullOrWhiteSpace(node.Value))
         {
             text = $"{text}. القيمة {node.Value}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(node.StateSummary))
+        {
+            text = $"{text}. {node.StateSummary}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(node.ShortcutKey))
+        {
+            text = $"{text}. اختصار {node.ShortcutKey}";
         }
 
         return new SpeechRequest(
