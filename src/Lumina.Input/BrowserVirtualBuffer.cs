@@ -23,14 +23,17 @@ public static class BrowserVirtualBuffer
         }
 
         AutomationElement root = BrowserNavigator.ResolveNavigationRootForBuffer(focused);
-        List<BufferItem> items = BrowserNavigator
+        List<BufferItem> rawItems = BrowserNavigator
             .EnumerateBufferCandidates(root)
             .Select(element => new BufferItem(
                 RuntimeId: SafeRuntimeId(element),
                 Element: element,
-                Summary: FocusSnapshotReader.BuildWebSummary(element)))
-            .Where(item => !string.IsNullOrWhiteSpace(item.Summary))
+                Summary: FocusSnapshotReader.BuildWebSummary(element),
+                ReadingLines: BuildReadingLines(element)))
+            .Where(item => !string.IsNullOrWhiteSpace(item.Summary) && item.ReadingLines.Count > 0)
             .ToList();
+
+        List<BufferLine> items = ExpandToBufferLines(rawItems);
 
         string pageTitle = FocusSnapshotReader.ResolveWindowTitle(focused);
         string focusedRuntimeId = SafeRuntimeId(focused);
@@ -50,7 +53,8 @@ public static class BrowserVirtualBuffer
             return "تم تحديث المخزن الظاهري، لكن لم يتم العثور على عناصر ويب قابلة للقراءة.";
         }
 
-        return $"تم تحديث المخزن الظاهري. الصفحة {pageTitle}. العناصر {items.Count}. الموضع الحالي {Math.Max(_currentIndex + 1, 0)}.";
+        int elementCount = rawItems.Count;
+        return $"تم تحديث المخزن الظاهري. الصفحة {pageTitle}. العناصر {elementCount}. أسطر القراءة {items.Count}. الموضع الحالي {Math.Max(_currentIndex + 1, 0)}.";
     }
 
     public static string ReadCurrent()
@@ -249,7 +253,12 @@ public static class BrowserVirtualBuffer
                 return "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
             }
 
-            return $"المخزن الظاهري للصفحة {_snapshot.PageTitle}. العناصر {_snapshot.Items.Count}. الموضع الحالي {Math.Max(_currentIndex + 1, 0)}.";
+            int elementCount = _snapshot.Items
+                .Select(item => item.RuntimeId)
+                .Distinct(StringComparer.Ordinal)
+                .Count();
+
+            return $"المخزن الظاهري للصفحة {_snapshot.PageTitle}. العناصر {elementCount}. أسطر القراءة {_snapshot.Items.Count}. الموضع الحالي {Math.Max(_currentIndex + 1, 0)}.";
         }
     }
 
@@ -308,6 +317,106 @@ public static class BrowserVirtualBuffer
         return _snapshot.Items[_currentIndex].Summary ?? string.Empty;
     }
 
+    private static List<string> BuildReadingLines(AutomationElement element)
+    {
+        List<string> lines = [];
+
+        AddReadingSegment(lines, FocusSnapshotReader.BuildWebSummary(element));
+
+        string value = FocusSnapshotReader.TryReadValue(element);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            AddReadingSegment(lines, $"القيمة {value}");
+        }
+
+        string? state = FocusSnapshotReader.ResolveStateSummary(element);
+        if (!string.IsNullOrWhiteSpace(state))
+        {
+            AddReadingSegment(lines, $"الحالة {state}");
+        }
+
+        string? shortcut = FocusSnapshotReader.ResolveShortcutKey(element);
+        if (!string.IsNullOrWhiteSpace(shortcut))
+        {
+            AddReadingSegment(lines, $"الاختصار {shortcut}");
+        }
+
+        string helpText = element.Current.HelpText ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(helpText))
+        {
+            AddReadingSegment(lines, helpText);
+        }
+
+        return lines;
+    }
+
+    private static List<BufferLine> ExpandToBufferLines(List<BufferItem> rawItems)
+    {
+        List<BufferLine> lines = [];
+
+        foreach (BufferItem item in rawItems)
+        {
+            for (int i = 0; i < item.ReadingLines.Count; i++)
+            {
+                string lineText = item.ReadingLines[i];
+                if (string.IsNullOrWhiteSpace(lineText))
+                {
+                    continue;
+                }
+
+                lines.Add(new BufferLine(
+                    RuntimeId: item.RuntimeId,
+                    Element: item.Element,
+                    Summary: lineText,
+                    ParentSummary: item.Summary,
+                    LineIndexWithinElement: i));
+            }
+        }
+
+        return lines;
+    }
+
+    private static void AddReadingSegment(List<string> segments, string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        foreach (string segment in SplitIntoReadableSegments(text))
+        {
+            if (!segments.Contains(segment, StringComparer.Ordinal))
+            {
+                segments.Add(segment);
+            }
+        }
+    }
+
+    private static IEnumerable<string> SplitIntoReadableSegments(string text)
+    {
+        string[] separators = [". ", "، ", "\r\n", "\n"];
+        List<string> working = [text.Trim()];
+
+        foreach (string separator in separators)
+        {
+            List<string> next = [];
+            foreach (string part in working)
+            {
+                foreach (string splitPart in part.Split(separator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    if (!string.IsNullOrWhiteSpace(splitPart))
+                    {
+                        next.Add(splitPart.Trim().TrimEnd('.', '،'));
+                    }
+                }
+            }
+
+            working = next;
+        }
+
+        return working.Count == 0 ? [text.Trim()] : working;
+    }
+
     private static int FindNextWordStart(string text, int offset)
     {
         int index = Math.Max(offset, 0);
@@ -359,7 +468,7 @@ public static class BrowserVirtualBuffer
             _ => character.ToString()
         };
 
-    private static string FocusBufferItem(BufferItem item)
+    private static string FocusBufferItem(BufferLine item)
     {
         try
         {
@@ -385,6 +494,12 @@ public static class BrowserVirtualBuffer
         }
     }
 
-    private sealed record BufferSnapshot(string PageTitle, List<BufferItem> Items);
-    private sealed record BufferItem(string RuntimeId, AutomationElement Element, string Summary);
+    private sealed record BufferSnapshot(string PageTitle, List<BufferLine> Items);
+    private sealed record BufferItem(string RuntimeId, AutomationElement Element, string Summary, List<string> ReadingLines);
+    private sealed record BufferLine(
+        string RuntimeId,
+        AutomationElement Element,
+        string Summary,
+        string ParentSummary,
+        int LineIndexWithinElement);
 }
