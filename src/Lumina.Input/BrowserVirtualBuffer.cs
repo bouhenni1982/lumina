@@ -1,4 +1,5 @@
 using System.Windows.Automation;
+using System.Windows.Automation.Text;
 
 namespace Lumina.Input;
 
@@ -321,7 +322,11 @@ public static class BrowserVirtualBuffer
     {
         List<string> lines = [];
 
-        AddReadingSegment(lines, FocusSnapshotReader.BuildWebSummary(element));
+        bool addedRichText = AddReadableTextFromElement(lines, element);
+        if (!addedRichText)
+        {
+            AddReadingSegment(lines, FocusSnapshotReader.BuildWebSummary(element));
+        }
 
         string value = FocusSnapshotReader.TryReadValue(element);
         if (!string.IsNullOrWhiteSpace(value))
@@ -348,6 +353,32 @@ public static class BrowserVirtualBuffer
         }
 
         return lines;
+    }
+
+    private static bool AddReadableTextFromElement(List<string> lines, AutomationElement element)
+    {
+        bool addedAny = false;
+
+        if (TryReadTextPatternText(element, out string? textPatternText))
+        {
+            foreach (string line in SplitIntoReadableSegments(textPatternText))
+            {
+                if (IsUsefulReadingLine(line) && !lines.Contains(line, StringComparer.Ordinal))
+                {
+                    lines.Add(line);
+                    addedAny = true;
+                }
+            }
+        }
+
+        string name = FocusSnapshotReader.ResolveName(element);
+        if (IsUsefulReadingLine(name) && !lines.Contains(name, StringComparer.Ordinal))
+        {
+            lines.Insert(0, name);
+            addedAny = true;
+        }
+
+        return addedAny;
     }
 
     private static List<BufferLine> ExpandToBufferLines(List<BufferItem> rawItems)
@@ -392,8 +423,41 @@ public static class BrowserVirtualBuffer
         }
     }
 
+    private static bool TryReadTextPatternText(AutomationElement element, out string? text)
+    {
+        text = null;
+
+        try
+        {
+            if (!element.TryGetCurrentPattern(TextPattern.Pattern, out object? patternObject))
+            {
+                return false;
+            }
+
+            TextPattern pattern = (TextPattern)patternObject;
+            string patternText = NormalizeReadingText(pattern.DocumentRange.GetText(-1));
+            if (string.IsNullOrWhiteSpace(patternText))
+            {
+                return false;
+            }
+
+            text = patternText;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static IEnumerable<string> SplitIntoReadableSegments(string text)
     {
+        text = NormalizeReadingText(text);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return [];
+        }
+
         string[] separators = [". ", "، ", "\r\n", "\n"];
         List<string> working = [text.Trim()];
 
@@ -415,6 +479,29 @@ public static class BrowserVirtualBuffer
         }
 
         return working.Count == 0 ? [text.Trim()] : working;
+    }
+
+    private static string NormalizeReadingText(string? text) =>
+        (text ?? string.Empty)
+            .Replace("\r", "\n", StringComparison.Ordinal)
+            .Replace("\t", " ", StringComparison.Ordinal)
+            .Replace('\u00A0', ' ')
+            .Trim();
+
+    private static bool IsUsefulReadingLine(string? line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return false;
+        }
+
+        string value = line.Trim();
+        if (value.Length <= 1)
+        {
+            return false;
+        }
+
+        return value.Any(char.IsLetterOrDigit);
     }
 
     private static int FindNextWordStart(string text, int offset)
