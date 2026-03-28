@@ -45,6 +45,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkS = 0x53;
     private const uint VkR = 0x52;
     private const uint VkB = 0x42;
+    private const uint VkV = 0x56;
     private const uint VkY = 0x59;
     private const uint VkUp = 0x26;
     private const uint VkDown = 0x28;
@@ -121,6 +122,8 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _refreshVirtualBuffer;
     private readonly Action _summarizeVirtualBuffer;
     private readonly Action _syncVirtualBufferToFocus;
+    private readonly Action _speakLoggingStatus;
+    private readonly Action _cycleLoggingVerbosity;
     private readonly Action<bool> _announceTextReviewMode;
     private readonly Action _readCurrentLine;
     private readonly Action _readPreviousLine;
@@ -212,6 +215,8 @@ public sealed class KeyboardCommandManager : IDisposable
         Action refreshVirtualBuffer,
         Action summarizeVirtualBuffer,
         Action syncVirtualBufferToFocus,
+        Action speakLoggingStatus,
+        Action cycleLoggingVerbosity,
         Action<bool> announceTextReviewMode,
         Action readCurrentLine,
         Action readPreviousLine,
@@ -288,6 +293,8 @@ public sealed class KeyboardCommandManager : IDisposable
         _refreshVirtualBuffer = refreshVirtualBuffer;
         _summarizeVirtualBuffer = summarizeVirtualBuffer;
         _syncVirtualBufferToFocus = syncVirtualBufferToFocus;
+        _speakLoggingStatus = speakLoggingStatus;
+        _cycleLoggingVerbosity = cycleLoggingVerbosity;
         _announceTextReviewMode = announceTextReviewMode;
         _readCurrentLine = readCurrentLine;
         _readPreviousLine = readPreviousLine;
@@ -561,6 +568,8 @@ public sealed class KeyboardCommandManager : IDisposable
             (VkS, _) => _summarizeCurrentPage,
             (VkR, _) => _refreshVirtualBuffer,
             (VkB, _) => _summarizeVirtualBuffer,
+            (VkV, true) => _cycleLoggingVerbosity,
+            (VkV, false) => _speakLoggingStatus,
             (VkY, _) => _syncVirtualBufferToFocus,
             (VkUp, _) => _readCurrentLine,
             (VkDown, _) => _sayAllFromReviewCursor,

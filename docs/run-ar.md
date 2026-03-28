@@ -47,6 +47,7 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
   - `Insert+S` لقراءة ملخص الصفحة الحالية
   - `Insert+R` لتحديث المخزن الظاهري
   - `Insert+B` لملخص حالة المخزن الظاهري
+  - `Insert+V` لقراءة حالة السجل و`Shift+Insert+V` لتبديل مستوى التسجيل
   - `Insert+Y` لمزامنة المخزن الظاهري مع العنصر الحالي
   - `Insert+Enter` لتفعيل أو تعطيل وضع المراجعة النصية
   - `Insert+Up` لقراءة السطر الحالي

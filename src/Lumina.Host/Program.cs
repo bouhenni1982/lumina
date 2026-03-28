@@ -60,6 +60,7 @@ try
     Console.WriteLine("Insert+S لقراءة ملخص الصفحة الحالية.");
     Console.WriteLine("Insert+R لتحديث المخزن الظاهري للصفحة.");
     Console.WriteLine("Insert+B لملخص حالة المخزن الظاهري.");
+    Console.WriteLine("Insert+V لقراءة حالة السجل، وShift+Insert+V لتبديل مستوى التسجيل.");
     Console.WriteLine("Insert+Y لمزامنة المخزن الظاهري مع العنصر الحالي.");
     Console.WriteLine("Insert+Enter لتفعيل أو تعطيل وضع المراجعة النصية.");
     Console.WriteLine("Insert+Up لقراءة السطر الحالي.");
@@ -71,6 +72,7 @@ try
     Console.WriteLine("Insert+Space داخل المتصفح للتبديل بين وضع التصفح ووضع التركيز. وEscape للرجوع إلى وضع التصفح.");
     Console.WriteLine("داخل الجداول: Shift+Insert+T لقراءة سياق الجدول الحالي، وAltGr مع الأسهم للتنقل بين الخلايا.");
     Console.WriteLine("اضغط Ctrl+C للإيقاف.");
+    ErrorLogger.LogInfo("Program.Main", $"بدأ Lumina. {ErrorLogger.GetStatusSummary()}");
 
     var speechService = new SapiSpeechService();
     var inspectorSink = new CompositeInspectorSink(
@@ -368,6 +370,16 @@ try
         syncVirtualBufferToFocus: () =>
         {
             string text = BrowserVirtualBuffer.SyncToFocusedElement();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        speakLoggingStatus: () =>
+        {
+            string text = ErrorLogger.GetStatusSummary();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        cycleLoggingVerbosity: () =>
+        {
+            string text = ErrorLogger.CycleVerbosity();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         announceTextReviewMode: enabled =>
