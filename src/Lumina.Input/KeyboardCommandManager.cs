@@ -279,8 +279,8 @@ public sealed class KeyboardCommandManager : IDisposable
     {
         if (vkCode == VkTab)
         {
-            Action action = ResolveElementDetailsAction();
-            ThreadPool.QueueUserWorkItem(_ => action());
+            Action detailsAction = ResolveElementDetailsAction();
+            ThreadPool.QueueUserWorkItem(_ => detailsAction());
             return true;
         }
 
