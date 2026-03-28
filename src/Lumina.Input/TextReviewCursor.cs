@@ -28,6 +28,32 @@ public static class TextReviewCursor
 
     public static string ReadNextParagraph() => ReadUnit(1, TextUnit.Paragraph, "لا توجد فقرة لاحقة.", "العنصر الحالي لا يدعم مراجعة الفقرات.", "الفقرة");
 
+    public static string MoveToStartOfLine() => MoveToLineBoundary(toStart: true);
+
+    public static string MoveToEndOfLine() => MoveToLineBoundary(toStart: false);
+
+    public static string SayAllFromReviewCursor()
+    {
+        if (!TryGetTextPattern(out AutomationElement? element, out TextPattern? pattern))
+        {
+            return "العنصر الحالي لا يدعم القراءة المتصلة.";
+        }
+
+        lock (Sync)
+        {
+            EnsureRanges(pattern, element);
+
+            TextPatternRange anchor = _characterRange?.Clone() ?? GetAnchorRange(pattern);
+            TextPatternRange documentEnd = pattern.DocumentRange.Clone();
+            anchor.MoveEndpointByRange(TextPatternRangeEndpoint.End, documentEnd, TextPatternRangeEndpoint.End);
+
+            string text = Normalize(anchor.GetText(-1));
+            return string.IsNullOrWhiteSpace(text)
+                ? "لا يوجد نص متبق للقراءة."
+                : $"قراءة متصلة {text}";
+        }
+    }
+
     private static string ReadCurrent(TextUnit unit, string label, string unsupportedMessage)
     {
         if (!TryGetTextPattern(out AutomationElement? element, out TextPattern? pattern))
@@ -154,6 +180,54 @@ public static class TextReviewCursor
         }
     }
 
+    private static string MoveToLineBoundary(bool toStart)
+    {
+        if (!TryGetTextPattern(out AutomationElement? element, out TextPattern? pattern))
+        {
+            return "العنصر الحالي لا يدعم مراجعة النص.";
+        }
+
+        lock (Sync)
+        {
+            EnsureRanges(pattern, element);
+
+            if (_lineRange is null)
+            {
+                return "العنصر الحالي لا يدعم مراجعة النص.";
+            }
+
+            TextPatternRange line = _lineRange.Clone();
+            line.ExpandToEnclosingUnit(TextUnit.Line);
+
+            TextPatternRange probe = line.Clone();
+            probe.ExpandToEnclosingUnit(TextUnit.Character);
+
+            while (true)
+            {
+                TextPatternRange next = probe.Clone();
+                int moved = next.Move(TextUnit.Character, toStart ? -1 : 1);
+                if (moved == 0)
+                {
+                    break;
+                }
+
+                next.ExpandToEnclosingUnit(TextUnit.Character);
+                if (CrossesLineBoundary(line, next))
+                {
+                    break;
+                }
+
+                probe = next;
+            }
+
+            _characterRange = probe.Clone();
+            string text = Normalize(_characterRange.GetText(-1));
+            return toStart
+                ? $"بداية السطر {DescribeCharacter(text)}"
+                : $"نهاية السطر {DescribeCharacter(text)}";
+        }
+    }
+
     private static bool TryGetTextPattern(out AutomationElement? element, out TextPattern? pattern)
     {
         element = FocusSnapshotReader.GetFocusedElement();
@@ -199,6 +273,14 @@ public static class TextReviewCursor
         TextPatternRange document = pattern.DocumentRange.Clone();
         document.MoveEndpointByUnit(TextPatternRangeEndpoint.End, TextUnit.Character, -1);
         return document;
+    }
+
+    private static bool CrossesLineBoundary(TextPatternRange lineRange, TextPatternRange characterRange)
+    {
+        TextPatternRange start = characterRange.Clone();
+        start.MoveEndpointByRange(TextPatternRangeEndpoint.End, start, TextPatternRangeEndpoint.Start);
+        return lineRange.CompareEndpoints(TextPatternRangeEndpoint.Start, start, TextPatternRangeEndpoint.Start) > 0 ||
+               lineRange.CompareEndpoints(TextPatternRangeEndpoint.End, start, TextPatternRangeEndpoint.Start) <= 0;
     }
 
     private static string GetRuntimeId(AutomationElement element)

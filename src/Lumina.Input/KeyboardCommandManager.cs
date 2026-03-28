@@ -33,6 +33,8 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkDown = 0x28;
     private const uint VkLeft = 0x25;
     private const uint VkRight = 0x27;
+    private const uint VkHome = 0x24;
+    private const uint VkEnd = 0x23;
 
     private const uint VkH = 0x48;
     private const uint VkK = 0x4B;
@@ -63,6 +65,9 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _readNextWord;
     private readonly Action _readPreviousParagraph;
     private readonly Action _readNextParagraph;
+    private readonly Action _moveToStartOfLine;
+    private readonly Action _moveToEndOfLine;
+    private readonly Action _sayAllFromReviewCursor;
 
     private readonly HookProc _hookProc;
     private Thread? _messageLoopThread;
@@ -97,7 +102,10 @@ public sealed class KeyboardCommandManager : IDisposable
         Action readPreviousWord,
         Action readNextWord,
         Action readPreviousParagraph,
-        Action readNextParagraph)
+        Action readNextParagraph,
+        Action moveToStartOfLine,
+        Action moveToEndOfLine,
+        Action sayAllFromReviewCursor)
     {
         _speakCurrentFocus = speakCurrentFocus;
         _repeatLastSpeech = repeatLastSpeech;
@@ -124,6 +132,9 @@ public sealed class KeyboardCommandManager : IDisposable
         _readNextWord = readNextWord;
         _readPreviousParagraph = readPreviousParagraph;
         _readNextParagraph = readNextParagraph;
+        _moveToStartOfLine = moveToStartOfLine;
+        _moveToEndOfLine = moveToEndOfLine;
+        _sayAllFromReviewCursor = sayAllFromReviewCursor;
         _hookProc = HookCallback;
     }
 
@@ -268,6 +279,7 @@ public sealed class KeyboardCommandManager : IDisposable
             VkB => _summarizeVirtualBuffer,
             VkY => _syncVirtualBufferToFocus,
             VkUp => _readCurrentLine,
+            VkDown => _sayAllFromReviewCursor,
             VkLeft => _readPreviousWord,
             VkRight => _readNextWord,
             _ => null
@@ -290,6 +302,8 @@ public sealed class KeyboardCommandManager : IDisposable
             (VkRight, false) => _readNextCharacter,
             (VkUp, false) => _readPreviousLine,
             (VkDown, false) => _readNextLine,
+            (VkHome, false) => _moveToStartOfLine,
+            (VkEnd, false) => _moveToEndOfLine,
             (VkLeft, true) => _readPreviousWord,
             (VkRight, true) => _readNextWord,
             (VkUp, true) => _readPreviousParagraph,

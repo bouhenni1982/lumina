@@ -42,12 +42,14 @@ dotnet run --project .\src\Lumina.Host\Lumina.Host.csproj
   - `Insert+Y` لمزامنة المخزن الظاهري مع العنصر الحالي
   - `Insert+Enter` لتفعيل أو تعطيل وضع المراجعة النصية
   - `Insert+Up` لقراءة السطر الحالي
+  - `Insert+Down` للقراءة المتصلة من موضع المراجعة
   - `Insert+Left / Insert+Right` للكلمة السابقة أو اللاحقة
 - داخل وضع المراجعة النصية:
   - `Left / Right` للحرف السابق أو اللاحق
   - `Up / Down` للسطر السابق أو اللاحق
   - `Ctrl+Left / Ctrl+Right` للكلمة السابقة أو اللاحقة
   - `Ctrl+Up / Ctrl+Down` للفقرة السابقة أو اللاحقة
+  - `Home / End` لبداية ونهاية السطر
 - داخل المتصفح:
   - `H / K / E` للعنصر التالي
   - `Shift+H / Shift+K / Shift+E` للعنصر السابق

@@ -22,8 +22,9 @@ Console.WriteLine("Insert+B لملخص حالة المخزن الظاهري.");
 Console.WriteLine("Insert+Y لمزامنة المخزن الظاهري مع العنصر الحالي.");
 Console.WriteLine("Insert+Enter لتفعيل أو تعطيل وضع المراجعة النصية.");
 Console.WriteLine("Insert+Up لقراءة السطر الحالي.");
+Console.WriteLine("Insert+Down لقراءة متصلة من موضع المراجعة.");
 Console.WriteLine("Insert+Left/Right للكلمة السابقة أو اللاحقة.");
-Console.WriteLine("داخل وضع المراجعة: الأسهم للحرف والسطر وCtrl+الأسهم للكلمة والفقرة.");
+Console.WriteLine("داخل وضع المراجعة: الأسهم للحرف والسطر وCtrl+الأسهم للكلمة والفقرة وHome/End لبداية ونهاية السطر.");
 Console.WriteLine("داخل المتصفح: H/K/E للعنصر التالي وShift+H/K/E للعنصر السابق.");
 Console.WriteLine("اضغط Ctrl+C للإيقاف.");
 
@@ -155,6 +156,21 @@ using var hotKeys = new KeyboardCommandManager(
     readNextParagraph: () =>
     {
         string text = TextReviewCursor.ReadNextParagraph();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    moveToStartOfLine: () =>
+    {
+        string text = TextReviewCursor.MoveToStartOfLine();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    moveToEndOfLine: () =>
+    {
+        string text = TextReviewCursor.MoveToEndOfLine();
+        speechService.Enqueue(new SpeechRequest(text, 100, true));
+    },
+    sayAllFromReviewCursor: () =>
+    {
+        string text = TextReviewCursor.SayAllFromReviewCursor();
         speechService.Enqueue(new SpeechRequest(text, 100, true));
     });
 
