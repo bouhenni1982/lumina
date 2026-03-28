@@ -1,18 +1,18 @@
-name: windows-build
+name: windows-release
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - master
-  pull_request:
+    inputs:
+      tag_name:
+        description: Release tag name
+        required: true
+        default: v0.1.0
 
 jobs:
-  build-windows:
+  release-windows:
     runs-on: windows-latest
 
     steps:
@@ -33,12 +33,13 @@ jobs:
       - name: Publish Windows host
         run: dotnet publish .\src\Lumina.Host\Lumina.Host.csproj --configuration Release --output .\artifacts\Lumina.Host --no-build
 
-      - name: Create ZIP package
+      - name: Create release ZIP
         shell: pwsh
-        run: Compress-Archive -Path .\artifacts\Lumina.Host\* -DestinationPath .\artifacts\lumina-windows.zip -Force
+        run: Compress-Archive -Path .\artifacts\Lumina.Host\* -DestinationPath .\artifacts\lumina-windows-${{ github.event.inputs.tag_name }}.zip -Force
 
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
         with:
-          name: lumina-windows
-          path: .\artifacts\lumina-windows.zip
+          tag_name: ${{ github.event.inputs.tag_name }}
+          name: Lumina ${{ github.event.inputs.tag_name }}
+          files: .\artifacts\lumina-windows-${{ github.event.inputs.tag_name }}.zip
