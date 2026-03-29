@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Automation;
+using System.Text.RegularExpressions;
 
 namespace Lumina.Input;
 
@@ -391,6 +392,7 @@ public static class FocusSnapshotReader
         string name = ResolveName(element);
         string pageTitle = ResolveWindowTitle(element);
         string value = TryReadValue(element);
+        string? stateSummary = ResolveStateSummary(element);
 
         string text = semanticRole switch
         {
@@ -399,20 +401,38 @@ public static class FocusSnapshotReader
             "web_edit" => $"حقل إدخال ويب {name}",
             "web_document" => $"مستند ويب {name}",
             "web_button" => $"زر ويب {name}",
+            "web_togglebutton" => $"زر تبديل ويب {name}",
             "web_checkbox" => $"خانة اختيار {name}",
             "web_radio" => $"زر اختيار ويب {name}",
             "web_combobox" => $"مربع خيارات ويب {name}",
+            "web_graphic" => $"رسم ويب {name}",
+            "web_frame" => $"إطار ويب {name}",
+            "web_separator" => $"فاصل ويب {name}",
+            "web_blockquote" => $"اقتباس كتلي ويب {name}",
+            "web_embeddedobject" => $"عنصر مضمن ويب {name}",
+            "web_tab" => $"علامة تبويب ويب {name}",
+            "web_menuitem" => $"عنصر قائمة ويب {name}",
             "web_table" => $"جدول {name}",
             "web_list" => $"قائمة ويب {name}",
             "web_listitem" => $"عنصر قائمة ويب {name}",
+            "web_treeitem" => $"عنصر شجرة ويب {name}",
             "web_dialog" => $"حوار ويب {name}",
             "web_landmark" => $"معلم صفحة {name}",
+            "web_article" => $"مقالة ويب {name}",
+            "web_figure" => $"شكل ويب {name}",
+            "web_grouping" => $"مجموعة ويب {name}",
+            "web_progressbar" => $"شريط تقدم ويب {name}",
             _ => $"عنصر ويب {name}"
         };
 
         if (!string.IsNullOrWhiteSpace(value))
         {
             text = $"{text}. القيمة {value}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(stateSummary))
+        {
+            text = $"{text}. {stateSummary}";
         }
 
         if (!string.IsNullOrWhiteSpace(pageTitle))
@@ -768,6 +788,42 @@ public static class FocusSnapshotReader
             return "web_edit";
         }
 
+        if (role == "image" || localizedRole.Contains("image") || localizedRole.Contains("graphic"))
+        {
+            return "web_graphic";
+        }
+
+        if (role == "separator" || localizedRole.Contains("separator"))
+        {
+            return "web_separator";
+        }
+
+        if (IsLikelyBlockQuoteElement(element, role, localizedRole, itemType, helpText))
+        {
+            return "web_blockquote";
+        }
+
+        if ((role == "pane" || role == "document") &&
+            (localizedRole.Contains("frame") ||
+             itemType.Contains("frame") ||
+             itemType.Contains("iframe") ||
+             helpText.Contains("frame") ||
+             helpText.Contains("iframe")))
+        {
+            return "web_frame";
+        }
+
+        if (IsLikelyEmbeddedObjectElement(element, role, localizedRole, itemType, helpText))
+        {
+            return "web_embeddedobject";
+        }
+
+        if (role == "button" &&
+            element.TryGetCurrentPattern(TogglePattern.Pattern, out _))
+        {
+            return "web_togglebutton";
+        }
+
         if (role == "button" || localizedRole.Contains("button"))
         {
             return "web_button";
@@ -783,9 +839,29 @@ public static class FocusSnapshotReader
             return "web_combobox";
         }
 
+        if (role == "tabitem" || localizedRole.Contains("tab item"))
+        {
+            return "web_tab";
+        }
+
+        if (role == "menuitem" || localizedRole.Contains("menu item"))
+        {
+            return "web_menuitem";
+        }
+
+        if (role == "treeitem" || localizedRole.Contains("tree item"))
+        {
+            return "web_treeitem";
+        }
+
         if (localizedRole.Contains("check box") || role.Contains("check", StringComparison.OrdinalIgnoreCase))
         {
             return "web_checkbox";
+        }
+
+        if (role == "progressbar" || localizedRole.Contains("progress bar"))
+        {
+            return "web_progressbar";
         }
 
         if (role == "table" || localizedRole.Contains("table") || localizedRole.Contains("grid"))
@@ -801,6 +877,25 @@ public static class FocusSnapshotReader
         if (role == "listitem" || localizedRole.Contains("list item"))
         {
             return "web_listitem";
+        }
+
+        if (localizedRole.Contains("article") || itemType.Contains("article") || helpText.Contains("article"))
+        {
+            return "web_article";
+        }
+
+        if (localizedRole.Contains("figure") || itemType.Contains("figure") || helpText.Contains("figure"))
+        {
+            return "web_figure";
+        }
+
+        if (role == "group" ||
+            localizedRole.Contains("grouping") ||
+            localizedRole.Contains("group") ||
+            itemType.Contains("grouping") ||
+            helpText.Contains("grouping"))
+        {
+            return "web_grouping";
         }
 
         if (localizedRole.Contains("dialog") || localizedRole.Contains("alert"))
@@ -822,6 +917,24 @@ public static class FocusSnapshotReader
         return "web_control";
     }
 
+    internal static bool IsWebHeadingLevel(AutomationElement element, int level)
+    {
+        if (ResolveWebSemanticRole(element) != "web_heading")
+        {
+            return false;
+        }
+
+        string localizedRole = (element.Current.LocalizedControlType ?? string.Empty).ToLowerInvariant();
+        string itemType = (element.Current.ItemType ?? string.Empty).ToLowerInvariant();
+        string helpText = (element.Current.HelpText ?? string.Empty).ToLowerInvariant();
+        string combined = $"{localizedRole} {itemType} {helpText}";
+
+        return Regex.IsMatch(combined, $@"\b(h|heading)\s*{level}\b", RegexOptions.IgnoreCase) ||
+               Regex.IsMatch(combined, $@"\blevel\s*{level}\b", RegexOptions.IgnoreCase) ||
+               combined.Contains($"عنوان {level}", StringComparison.OrdinalIgnoreCase) ||
+               combined.Contains($"مستوى {level}", StringComparison.OrdinalIgnoreCase);
+    }
+
     internal static string ResolveWindowTitle(AutomationElement element)
     {
         AutomationElement? window = FindAncestor(
@@ -839,6 +952,23 @@ public static class FocusSnapshotReader
         }
 
         return string.Empty;
+    }
+
+    internal static string TryReadTextPatternText(AutomationElement element)
+    {
+        try
+        {
+            if (!element.TryGetCurrentPattern(TextPattern.Pattern, out object? patternObject))
+            {
+                return string.Empty;
+            }
+
+            return ((TextPattern)patternObject).DocumentRange.GetText(-1) ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     internal static string ResolveName(AutomationElement element) =>
@@ -944,6 +1074,103 @@ public static class FocusSnapshotReader
         return $"{acceleratorKey} / {accessKey}";
     }
 
+    private static bool IsLikelyBlockQuoteElement(
+        AutomationElement element,
+        string role,
+        string localizedRole,
+        string itemType,
+        string helpText)
+    {
+        bool hasQuoteHint =
+            localizedRole.Contains("block quote") ||
+            localizedRole.Contains("blockquote") ||
+            itemType.Contains("block quote") ||
+            itemType.Contains("blockquote") ||
+            helpText.Contains("block quote") ||
+            helpText.Contains("blockquote") ||
+            itemType.Contains("citation") ||
+            helpText.Contains("citation");
+
+        if (!hasQuoteHint)
+        {
+            return false;
+        }
+
+        if (role is "button" or "hyperlink" or "menuitem" or "tabitem" or "checkbox" or "radiobutton" or "combobox")
+        {
+            return false;
+        }
+
+        string text = NormalizeInlineText(TryReadTextPatternText(element));
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            text = NormalizeInlineText(TryReadValue(element));
+        }
+
+        int wordCount = text
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Count(word => word.Any(char.IsLetterOrDigit));
+        return wordCount >= 5;
+    }
+
+    private static bool IsLikelyEmbeddedObjectElement(
+        AutomationElement element,
+        string role,
+        string localizedRole,
+        string itemType,
+        string helpText)
+    {
+        bool hasMediaHint =
+            localizedRole.Contains("embedded object") ||
+            itemType.Contains("embedded") ||
+            helpText.Contains("embedded") ||
+            itemType.Contains("plugin") ||
+            helpText.Contains("plugin") ||
+            itemType.Contains("video") ||
+            helpText.Contains("video") ||
+            itemType.Contains("audio") ||
+            helpText.Contains("audio") ||
+            itemType.Contains("canvas") ||
+            helpText.Contains("canvas") ||
+            itemType.Contains("svg") ||
+            helpText.Contains("svg") ||
+            itemType.Contains("math") ||
+            helpText.Contains("math");
+
+        if (!hasMediaHint)
+        {
+            return false;
+        }
+
+        if (role is "hyperlink" or "text" or "listitem")
+        {
+            return false;
+        }
+
+        bool hasInteractivePattern =
+            element.TryGetCurrentPattern(InvokePattern.Pattern, out _) ||
+            element.TryGetCurrentPattern(ExpandCollapsePattern.Pattern, out _) ||
+            element.TryGetCurrentPattern(SelectionItemPattern.Pattern, out _) ||
+            element.TryGetCurrentPattern(TransformPattern.Pattern, out _) ||
+            element.TryGetCurrentPattern(GridPattern.Pattern, out _) ||
+            element.TryGetCurrentPattern(GridItemPattern.Pattern, out _);
+
+        if (hasInteractivePattern)
+        {
+            return true;
+        }
+
+        return role is "pane" or "document" or "image" or "group" or "custom";
+    }
+
+    private static string NormalizeInlineText(string? text) =>
+        (text ?? string.Empty)
+            .Replace("\r", " ", StringComparison.Ordinal)
+            .Replace("\n", " ", StringComparison.Ordinal)
+            .Replace("\t", " ", StringComparison.Ordinal)
+            .Replace('\u00A0', ' ')
+            .Trim();
+
     internal static string? ResolveStateSummary(AutomationElement element)
     {
         List<string> states = [];
@@ -1000,6 +1227,9 @@ public static class FocusSnapshotReader
 
         return states.Count == 0 ? null : string.Join("، ", states);
     }
+
+    internal static bool HasBrowserState(AutomationElement element, string state) =>
+        ResolveBrowserSpecificStates(element).Contains(state, StringComparer.Ordinal);
 
     private static IEnumerable<string> ResolveBrowserSpecificStates(AutomationElement element)
     {

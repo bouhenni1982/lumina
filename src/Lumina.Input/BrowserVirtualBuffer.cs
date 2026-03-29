@@ -284,6 +284,16 @@ public static class BrowserVirtualBuffer
             return "لا يوجد عنصر نشط حاليا.";
         }
 
+        return SyncToElement(focused);
+    }
+
+    internal static string SyncToElement(AutomationElement element)
+    {
+        if (element is null)
+        {
+            return "لا يوجد عنصر نشط حاليا.";
+        }
+
         lock (Sync)
         {
             if (_snapshot is null || _snapshot.Items.Count == 0)
@@ -291,7 +301,7 @@ public static class BrowserVirtualBuffer
                 return "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
             }
 
-            string runtimeId = SafeRuntimeId(focused);
+            string runtimeId = SafeRuntimeId(element);
             int index = _snapshot.Items.FindIndex(item => item.RuntimeId == runtimeId);
             if (index < 0)
             {

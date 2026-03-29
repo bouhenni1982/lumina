@@ -59,6 +59,7 @@ try
     Console.WriteLine("Insert+X أو Shift+Insert+X للتنقل بين النصوص داخل الإعدادات.");
     Console.WriteLine("Insert+J أو Shift+Insert+J للتنقل بين المجموعات داخل الإعدادات.");
     Console.WriteLine("Insert+S لقراءة ملخص الصفحة الحالية.");
+    Console.WriteLine("Insert+F7 لفتح قائمة عناصر الصفحة الحالية، مع عرض هرمي للسياق ودعم التصفية والبحث بالحروف وتذكر آخر نوع مختار وآخر نص تصفية ومحاولة الحفاظ على التحديد السابق.");
     Console.WriteLine("Insert+R لتحديث المخزن الظاهري للصفحة.");
     Console.WriteLine("Insert+B لملخص حالة المخزن الظاهري.");
     Console.WriteLine("Insert+V لقراءة حالة السجل، وShift+Insert+V لتبديل مستوى التسجيل.");
@@ -69,8 +70,13 @@ try
     Console.WriteLine("Insert+Left/Right للكلمة السابقة أو اللاحقة.");
     Console.WriteLine("Insert+PageUp/PageDown للجملة السابقة أو اللاحقة.");
     Console.WriteLine("داخل وضع المراجعة: الأسهم الرئيسية أو أسهم لوحة الأرقام مع NumLock مغلق للحرف والسطر وCtrl+الأسهم للكلمة والفقرة وHome/End لبداية ونهاية السطر، مع محاولة مزامنة المؤشر النصي.");
-    Console.WriteLine("داخل المتصفح: H/K/E/B/X/D/Y/L/A/F للتنقل بين العناوين والروابط والحقول والأزرار وخانات الاختيار والمعالم والجداول والقوائم والحوارات وعناصر النماذج.");
-    Console.WriteLine("Insert+Space داخل المتصفح للتبديل بين وضع التصفح ووضع التركيز. وEscape للرجوع إلى وضع التصفح.");
+    Console.WriteLine("داخل المتصفح: H/K/V/U/E/G/M/S/Q/O/P/N/B/X/R/C/D/T/L/I/A/F للتنقل بين العناوين والروابط والروابط المزورة وغير المزورة والحقول والرسومات والإطارات والفواصل والاقتباسات الكتلية والعناصر المضمنة والفقرات النصية وكتل النص خارج الروابط والأزرار وخانات الاختيار وأزرار الاختيار ومربعات الخيارات والمعالم والجداول والقوائم وعناصر القوائم والحوارات وعناصر النماذج.");
+    Console.WriteLine("الأنواع الإضافية مثل tabs وmenu items وtree items وarticles وfigures وgroupings وprogress bars أصبحت مدعومة في قائمة العناصر وطبقة التنقل الداخلية، وبعضها بلا حرف افتراضي مثل NVDA.");
+    Console.WriteLine("الأرقام 1 إلى 9 للتنقل بين العناوين حسب المستوى، وShift+الرقم للرجوع.");
+    Console.WriteLine("Insert+Space داخل المتصفح للتبديل بين وضع التصفح ووضع التركيز. وShift+Insert+Space لتبديل التنقل بالحروف المفردة. وEscape للرجوع إلى وضع التصفح.");
+    Console.WriteLine("داخل وضع التصفح: Enter أو Space لتفعيل العنصر الحالي.");
+    Console.WriteLine("داخل وضع التصفح: Tab وShift+Tab للتنقل بين العناصر التفاعلية من موضع المؤشر، و, وShift+, للتنقل داخل الحاوية الحالية.");
+    Console.WriteLine("قد ينتقل التطبيق تلقائيا إلى وضع التركيز عند الوصول إلى عناصر تفاعلية مثل حقول الإدخال ومربعات الخيارات وعناصر القوائم وعلامات التبويب.");
     Console.WriteLine("داخل الجداول: Shift+Insert+T لقراءة سياق الجدول الحالي، وAltGr مع الأسهم للتنقل بين الخلايا.");
     Console.WriteLine("اضغط Ctrl+C للإيقاف.");
     ErrorLogger.LogInfo("Program.Main", $"بدأ Lumina. {ErrorLogger.GetStatusSummary()}");
@@ -84,6 +90,7 @@ try
         new SimpleLuaStyleScriptEngine(),
         speechService,
         inspectorSink);
+    using var browserElementsDialog = new BrowserElementsDialog();
 
     using var hotKeys = new KeyboardCommandManager(
         speakCurrentFocus: () =>
@@ -248,6 +255,16 @@ try
             string text = BrowserNavigator.MoveToPreviousHeading();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
+        moveToNextHeadingLevel: level =>
+        {
+            string text = BrowserNavigator.MoveToNextHeadingLevel(level);
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousHeadingLevel: level =>
+        {
+            string text = BrowserNavigator.MoveToPreviousHeadingLevel(level);
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
         moveToNextLink: () =>
         {
             string text = BrowserNavigator.MoveToNextLink();
@@ -258,6 +275,26 @@ try
             string text = BrowserNavigator.MoveToPreviousLink();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
+        moveToNextVisitedLink: () =>
+        {
+            string text = BrowserNavigator.MoveToNextVisitedLink();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousVisitedLink: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousVisitedLink();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextUnvisitedLink: () =>
+        {
+            string text = BrowserNavigator.MoveToNextUnvisitedLink();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousUnvisitedLink: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousUnvisitedLink();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
         moveToNextEditField: () =>
         {
             string text = BrowserNavigator.MoveToNextEditField();
@@ -266,6 +303,76 @@ try
         moveToPreviousEditField: () =>
         {
             string text = BrowserNavigator.MoveToPreviousEditField();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextGraphic: () =>
+        {
+            string text = BrowserNavigator.MoveToNextGraphic();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousGraphic: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousGraphic();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextFrame: () =>
+        {
+            string text = BrowserNavigator.MoveToNextFrame();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousFrame: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousFrame();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextSeparator: () =>
+        {
+            string text = BrowserNavigator.MoveToNextSeparator();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousSeparator: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousSeparator();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextBlockQuote: () =>
+        {
+            string text = BrowserNavigator.MoveToNextBlockQuote();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousBlockQuote: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousBlockQuote();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextEmbeddedObject: () =>
+        {
+            string text = BrowserNavigator.MoveToNextEmbeddedObject();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousEmbeddedObject: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousEmbeddedObject();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextTextParagraph: () =>
+        {
+            string text = BrowserNavigator.MoveToNextTextParagraph();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousTextParagraph: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousTextParagraph();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextNotLinkBlock: () =>
+        {
+            string text = BrowserNavigator.MoveToNextNotLinkBlock();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousNotLinkBlock: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousNotLinkBlock();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         moveToNextButton: () =>
@@ -286,6 +393,26 @@ try
         moveToPreviousCheckbox: () =>
         {
             string text = BrowserNavigator.MoveToPreviousCheckbox();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextRadioButton: () =>
+        {
+            string text = BrowserNavigator.MoveToNextRadioButton();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousRadioButton: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousRadioButton();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextComboBox: () =>
+        {
+            string text = BrowserNavigator.MoveToNextComboBox();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousComboBox: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousComboBox();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         moveToNextLandmark: () =>
@@ -318,6 +445,16 @@ try
             string text = BrowserNavigator.MoveToPreviousList();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
+        moveToNextListItem: () =>
+        {
+            string text = BrowserNavigator.MoveToNextListItem();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousListItem: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousListItem();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
         moveToNextDialog: () =>
         {
             string text = BrowserNavigator.MoveToNextDialog();
@@ -336,6 +473,31 @@ try
         moveToPreviousFormField: () =>
         {
             string text = BrowserNavigator.MoveToPreviousFormField();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToStartOfContainer: () =>
+        {
+            string text = BrowserNavigator.MoveToStartOfContainer();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        movePastEndOfContainer: () =>
+        {
+            string text = BrowserNavigator.MovePastEndOfContainer();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToNextFocusableElement: () =>
+        {
+            string text = BrowserNavigator.MoveToNextFocusableElement();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        moveToPreviousFocusableElement: () =>
+        {
+            string text = BrowserNavigator.MoveToPreviousFocusableElement();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        activateCurrentBrowserElement: () =>
+        {
+            string text = BrowserNavigator.ActivateCurrentElement();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         readCurrentTableContext: () =>
@@ -366,6 +528,11 @@ try
         summarizeCurrentPage: () =>
         {
             string text = BrowserNavigator.SummarizeCurrentPage();
+            speechService.Enqueue(new SpeechRequest(text, 100, true));
+        },
+        showBrowserElementsList: () =>
+        {
+            string text = browserElementsDialog.ShowOrFocus();
             speechService.Enqueue(new SpeechRequest(text, 100, true));
         },
         refreshVirtualBuffer: () =>

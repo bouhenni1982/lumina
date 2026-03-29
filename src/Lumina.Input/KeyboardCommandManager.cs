@@ -55,6 +55,17 @@ public sealed class KeyboardCommandManager : IDisposable
     private const uint VkPageDown = 0x22;
     private const uint VkSpace = 0x20;
     private const uint VkEscape = 0x1B;
+    private const uint VkF7 = 0x76;
+    private const uint Vk1 = 0x31;
+    private const uint Vk2 = 0x32;
+    private const uint Vk3 = 0x33;
+    private const uint Vk4 = 0x34;
+    private const uint Vk5 = 0x35;
+    private const uint Vk6 = 0x36;
+    private const uint Vk7 = 0x37;
+    private const uint Vk8 = 0x38;
+    private const uint Vk9 = 0x39;
+    private const uint VkComma = 0xBC;
 
     private const uint VkH = 0x48;
     private const uint VkK = 0x4B;
@@ -95,30 +106,62 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _readEditorStatusSummary;
     private readonly Action _moveToNextHeading;
     private readonly Action _moveToPreviousHeading;
+    private readonly Action<int> _moveToNextHeadingLevel;
+    private readonly Action<int> _moveToPreviousHeadingLevel;
     private readonly Action _moveToNextLink;
     private readonly Action _moveToPreviousLink;
+    private readonly Action _moveToNextVisitedLink;
+    private readonly Action _moveToPreviousVisitedLink;
+    private readonly Action _moveToNextUnvisitedLink;
+    private readonly Action _moveToPreviousUnvisitedLink;
     private readonly Action _moveToNextEditField;
     private readonly Action _moveToPreviousEditField;
+    private readonly Action _moveToNextGraphic;
+    private readonly Action _moveToPreviousGraphic;
+    private readonly Action _moveToNextFrame;
+    private readonly Action _moveToPreviousFrame;
+    private readonly Action _moveToNextSeparator;
+    private readonly Action _moveToPreviousSeparator;
+    private readonly Action _moveToNextBlockQuote;
+    private readonly Action _moveToPreviousBlockQuote;
+    private readonly Action _moveToNextEmbeddedObject;
+    private readonly Action _moveToPreviousEmbeddedObject;
+    private readonly Action _moveToNextTextParagraph;
+    private readonly Action _moveToPreviousTextParagraph;
+    private readonly Action _moveToNextNotLinkBlock;
+    private readonly Action _moveToPreviousNotLinkBlock;
     private readonly Action _moveToNextButton;
     private readonly Action _moveToPreviousButton;
     private readonly Action _moveToNextCheckbox;
     private readonly Action _moveToPreviousCheckbox;
+    private readonly Action _moveToNextRadioButton;
+    private readonly Action _moveToPreviousRadioButton;
+    private readonly Action _moveToNextComboBox;
+    private readonly Action _moveToPreviousComboBox;
     private readonly Action _moveToNextLandmark;
     private readonly Action _moveToPreviousLandmark;
     private readonly Action _moveToNextTable;
     private readonly Action _moveToPreviousTable;
     private readonly Action _moveToNextList;
     private readonly Action _moveToPreviousList;
+    private readonly Action _moveToNextListItem;
+    private readonly Action _moveToPreviousListItem;
     private readonly Action _moveToNextDialog;
     private readonly Action _moveToPreviousDialog;
     private readonly Action _moveToNextFormField;
     private readonly Action _moveToPreviousFormField;
+    private readonly Action _moveToStartOfContainer;
+    private readonly Action _movePastEndOfContainer;
+    private readonly Action _moveToNextFocusableElement;
+    private readonly Action _moveToPreviousFocusableElement;
+    private readonly Action _activateCurrentBrowserElement;
     private readonly Action _readCurrentTableContext;
     private readonly Action _moveToNextTableCell;
     private readonly Action _moveToPreviousTableCell;
     private readonly Action _moveToTableCellBelow;
     private readonly Action _moveToTableCellAbove;
     private readonly Action _summarizeCurrentPage;
+    private readonly Action _showBrowserElementsList;
     private readonly Action _refreshVirtualBuffer;
     private readonly Action _summarizeVirtualBuffer;
     private readonly Action _syncVirtualBufferToFocus;
@@ -149,11 +192,14 @@ public sealed class KeyboardCommandManager : IDisposable
     private bool _insertDown;
     private bool _textReviewMode;
     private bool _browserBrowseMode = true;
+    private bool _browserSingleLetterNavigationEnabled = true;
     private bool _browserAutoFocusOnEdit;
     private bool _browserEditDirty;
     private DateTime _lastElementDetailsCommandUtc = DateTime.MinValue;
+    private DateTime _lastAutoFocusModeAnnouncementUtc = DateTime.MinValue;
 
     private static readonly TimeSpan AdvancedDetailsRepeatWindow = TimeSpan.FromMilliseconds(900);
+    private static readonly TimeSpan AutoFocusModeAnnouncementWindow = TimeSpan.FromMilliseconds(1200);
 
     public KeyboardCommandManager(
         Action speakCurrentFocus,
@@ -190,30 +236,62 @@ public sealed class KeyboardCommandManager : IDisposable
         Action readEditorStatusSummary,
         Action moveToNextHeading,
         Action moveToPreviousHeading,
+        Action<int> moveToNextHeadingLevel,
+        Action<int> moveToPreviousHeadingLevel,
         Action moveToNextLink,
         Action moveToPreviousLink,
+        Action moveToNextVisitedLink,
+        Action moveToPreviousVisitedLink,
+        Action moveToNextUnvisitedLink,
+        Action moveToPreviousUnvisitedLink,
         Action moveToNextEditField,
         Action moveToPreviousEditField,
+        Action moveToNextGraphic,
+        Action moveToPreviousGraphic,
+        Action moveToNextFrame,
+        Action moveToPreviousFrame,
+        Action moveToNextSeparator,
+        Action moveToPreviousSeparator,
+        Action moveToNextBlockQuote,
+        Action moveToPreviousBlockQuote,
+        Action moveToNextEmbeddedObject,
+        Action moveToPreviousEmbeddedObject,
+        Action moveToNextTextParagraph,
+        Action moveToPreviousTextParagraph,
+        Action moveToNextNotLinkBlock,
+        Action moveToPreviousNotLinkBlock,
         Action moveToNextButton,
         Action moveToPreviousButton,
         Action moveToNextCheckbox,
         Action moveToPreviousCheckbox,
+        Action moveToNextRadioButton,
+        Action moveToPreviousRadioButton,
+        Action moveToNextComboBox,
+        Action moveToPreviousComboBox,
         Action moveToNextLandmark,
         Action moveToPreviousLandmark,
         Action moveToNextTable,
         Action moveToPreviousTable,
         Action moveToNextList,
         Action moveToPreviousList,
+        Action moveToNextListItem,
+        Action moveToPreviousListItem,
         Action moveToNextDialog,
         Action moveToPreviousDialog,
         Action moveToNextFormField,
         Action moveToPreviousFormField,
+        Action moveToStartOfContainer,
+        Action movePastEndOfContainer,
+        Action moveToNextFocusableElement,
+        Action moveToPreviousFocusableElement,
+        Action activateCurrentBrowserElement,
         Action readCurrentTableContext,
         Action moveToNextTableCell,
         Action moveToPreviousTableCell,
         Action moveToTableCellBelow,
         Action moveToTableCellAbove,
         Action summarizeCurrentPage,
+        Action showBrowserElementsList,
         Action refreshVirtualBuffer,
         Action summarizeVirtualBuffer,
         Action syncVirtualBufferToFocus,
@@ -270,30 +348,62 @@ public sealed class KeyboardCommandManager : IDisposable
         _readEditorStatusSummary = readEditorStatusSummary;
         _moveToNextHeading = moveToNextHeading;
         _moveToPreviousHeading = moveToPreviousHeading;
+        _moveToNextHeadingLevel = moveToNextHeadingLevel;
+        _moveToPreviousHeadingLevel = moveToPreviousHeadingLevel;
         _moveToNextLink = moveToNextLink;
         _moveToPreviousLink = moveToPreviousLink;
+        _moveToNextVisitedLink = moveToNextVisitedLink;
+        _moveToPreviousVisitedLink = moveToPreviousVisitedLink;
+        _moveToNextUnvisitedLink = moveToNextUnvisitedLink;
+        _moveToPreviousUnvisitedLink = moveToPreviousUnvisitedLink;
         _moveToNextEditField = moveToNextEditField;
         _moveToPreviousEditField = moveToPreviousEditField;
+        _moveToNextGraphic = moveToNextGraphic;
+        _moveToPreviousGraphic = moveToPreviousGraphic;
+        _moveToNextFrame = moveToNextFrame;
+        _moveToPreviousFrame = moveToPreviousFrame;
+        _moveToNextSeparator = moveToNextSeparator;
+        _moveToPreviousSeparator = moveToPreviousSeparator;
+        _moveToNextBlockQuote = moveToNextBlockQuote;
+        _moveToPreviousBlockQuote = moveToPreviousBlockQuote;
+        _moveToNextEmbeddedObject = moveToNextEmbeddedObject;
+        _moveToPreviousEmbeddedObject = moveToPreviousEmbeddedObject;
+        _moveToNextTextParagraph = moveToNextTextParagraph;
+        _moveToPreviousTextParagraph = moveToPreviousTextParagraph;
+        _moveToNextNotLinkBlock = moveToNextNotLinkBlock;
+        _moveToPreviousNotLinkBlock = moveToPreviousNotLinkBlock;
         _moveToNextButton = moveToNextButton;
         _moveToPreviousButton = moveToPreviousButton;
         _moveToNextCheckbox = moveToNextCheckbox;
         _moveToPreviousCheckbox = moveToPreviousCheckbox;
+        _moveToNextRadioButton = moveToNextRadioButton;
+        _moveToPreviousRadioButton = moveToPreviousRadioButton;
+        _moveToNextComboBox = moveToNextComboBox;
+        _moveToPreviousComboBox = moveToPreviousComboBox;
         _moveToNextLandmark = moveToNextLandmark;
         _moveToPreviousLandmark = moveToPreviousLandmark;
         _moveToNextTable = moveToNextTable;
         _moveToPreviousTable = moveToPreviousTable;
         _moveToNextList = moveToNextList;
         _moveToPreviousList = moveToPreviousList;
+        _moveToNextListItem = moveToNextListItem;
+        _moveToPreviousListItem = moveToPreviousListItem;
         _moveToNextDialog = moveToNextDialog;
         _moveToPreviousDialog = moveToPreviousDialog;
         _moveToNextFormField = moveToNextFormField;
         _moveToPreviousFormField = moveToPreviousFormField;
+        _moveToStartOfContainer = moveToStartOfContainer;
+        _movePastEndOfContainer = movePastEndOfContainer;
+        _moveToNextFocusableElement = moveToNextFocusableElement;
+        _moveToPreviousFocusableElement = moveToPreviousFocusableElement;
+        _activateCurrentBrowserElement = activateCurrentBrowserElement;
         _readCurrentTableContext = readCurrentTableContext;
         _moveToNextTableCell = moveToNextTableCell;
         _moveToPreviousTableCell = moveToPreviousTableCell;
         _moveToTableCellBelow = moveToTableCellBelow;
         _moveToTableCellAbove = moveToTableCellAbove;
         _summarizeCurrentPage = summarizeCurrentPage;
+        _showBrowserElementsList = showBrowserElementsList;
         _refreshVirtualBuffer = refreshVirtualBuffer;
         _summarizeVirtualBuffer = summarizeVirtualBuffer;
         _syncVirtualBufferToFocus = syncVirtualBufferToFocus;
@@ -440,9 +550,21 @@ public sealed class KeyboardCommandManager : IDisposable
 
         if (_insertDown && !controlDown && !altDown && !winDown)
         {
+            if (shiftDown && vkCode == VkSpace && IsBrowserContext())
+            {
+                _browserSingleLetterNavigationEnabled = !_browserSingleLetterNavigationEnabled;
+                string singleLetterText = _browserSingleLetterNavigationEnabled
+                    ? "تم تفعيل التنقل بالحروف المفردة."
+                    : "تم تعطيل التنقل بالحروف المفردة.";
+                ThreadPool.QueueUserWorkItem(_ => _speakBrowserMessage(singleLetterText));
+                return (IntPtr)1;
+            }
+
             if (vkCode == VkSpace && IsBrowserContext())
             {
                 _browserBrowseMode = !_browserBrowseMode;
+                _browserAutoFocusOnEdit = false;
+                _browserEditDirty = false;
                 string modeText = _browserBrowseMode
                     ? "تم تفعيل وضع التصفح."
                     : "تم تفعيل وضع التركيز.";
@@ -492,6 +614,36 @@ public sealed class KeyboardCommandManager : IDisposable
             !altDown &&
             !winDown &&
             !_textReviewMode &&
+            _browserBrowseMode &&
+            IsBrowserContext() &&
+            vkCode is VkReturn or VkSpace)
+        {
+            ThreadPool.QueueUserWorkItem(_ => _activateCurrentBrowserElement());
+            return (IntPtr)1;
+        }
+
+        if (!_insertDown &&
+            !controlDown &&
+            !altDown &&
+            !winDown &&
+            !_textReviewMode &&
+            _browserBrowseMode &&
+            IsBrowserContext() &&
+            vkCode == VkTab)
+        {
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                (shiftDown ? _moveToPreviousFocusableElement : _moveToNextFocusableElement)();
+                TryAutoPassThroughForFocusedElement();
+            });
+            return (IntPtr)1;
+        }
+
+        if (!_insertDown &&
+            !controlDown &&
+            !altDown &&
+            !winDown &&
+            !_textReviewMode &&
             IsBrowserNavigationContext())
         {
             if (TryHandleBrowserNavigation(vkCode, shiftDown))
@@ -509,6 +661,8 @@ public sealed class KeyboardCommandManager : IDisposable
             !_browserBrowseMode)
         {
             _browserBrowseMode = true;
+            _browserAutoFocusOnEdit = false;
+            _browserEditDirty = false;
             ThreadPool.QueueUserWorkItem(_ => _speakBrowserMessage("تم الرجوع إلى وضع التصفح."));
             return (IntPtr)1;
         }
@@ -570,6 +724,7 @@ public sealed class KeyboardCommandManager : IDisposable
             (VkJ, true) => _moveToPreviousSettingsGroup,
             (VkJ, false) => _moveToNextSettingsGroup,
             (VkS, _) => _summarizeCurrentPage,
+            (VkF7, _) => _showBrowserElementsList,
             (VkR, _) => _refreshVirtualBuffer,
             (VkB, _) => _summarizeVirtualBuffer,
             (VkV, true) => _cycleLoggingVerbosity,
@@ -629,37 +784,115 @@ public sealed class KeyboardCommandManager : IDisposable
 
     private bool TryHandleBrowserNavigation(uint vkCode, bool shiftDown)
     {
+        if (!_browserSingleLetterNavigationEnabled)
+        {
+            return false;
+        }
+
         Action? action = vkCode switch
         {
             VkH when shiftDown => _moveToPreviousHeading,
             VkH => _moveToNextHeading,
             VkK when shiftDown => _moveToPreviousLink,
             VkK => _moveToNextLink,
+            VkV when shiftDown => _moveToPreviousVisitedLink,
+            VkV => _moveToNextVisitedLink,
+            VkU when shiftDown => _moveToPreviousUnvisitedLink,
+            VkU => _moveToNextUnvisitedLink,
             VkE when shiftDown => _moveToPreviousEditField,
             VkE => _moveToNextEditField,
+            VkG when shiftDown => _moveToPreviousGraphic,
+            VkG => _moveToNextGraphic,
+            VkQ when shiftDown => _moveToPreviousBlockQuote,
+            VkQ => _moveToNextBlockQuote,
             VkB when shiftDown => _moveToPreviousButton,
             VkB => _moveToNextButton,
+            VkM when shiftDown => _moveToPreviousFrame,
+            VkM => _moveToNextFrame,
+            VkO when shiftDown => _moveToPreviousEmbeddedObject,
+            VkO => _moveToNextEmbeddedObject,
+            VkP when shiftDown => _moveToPreviousTextParagraph,
+            VkP => _moveToNextTextParagraph,
+            VkN when shiftDown => _moveToPreviousNotLinkBlock,
+            VkN => _moveToNextNotLinkBlock,
+            VkS when shiftDown => _moveToPreviousSeparator,
+            VkS => _moveToNextSeparator,
             VkX when shiftDown => _moveToPreviousCheckbox,
             VkX => _moveToNextCheckbox,
+            VkR when shiftDown => _moveToPreviousRadioButton,
+            VkR => _moveToNextRadioButton,
+            VkC when shiftDown => _moveToPreviousComboBox,
+            VkC => _moveToNextComboBox,
             VkD when shiftDown => _moveToPreviousLandmark,
             VkD => _moveToNextLandmark,
+            VkT when shiftDown => _moveToPreviousTable,
+            VkT => _moveToNextTable,
             VkY when shiftDown => _moveToPreviousTable,
             VkY => _moveToNextTable,
             VkLBrowser when shiftDown => _moveToPreviousList,
             VkLBrowser => _moveToNextList,
+            VkI when shiftDown => _moveToPreviousListItem,
+            VkI => _moveToNextListItem,
             VkA when shiftDown => _moveToPreviousDialog,
             VkA => _moveToNextDialog,
             VkF when shiftDown => _moveToPreviousFormField,
             VkF => _moveToNextFormField,
+            VkComma when shiftDown => _moveToStartOfContainer,
+            VkComma => _movePastEndOfContainer,
             _ => null
         };
+
+        if (action is null && TryResolveHeadingLevelNavigation(vkCode, shiftDown, out Action? headingAction))
+        {
+            action = headingAction;
+        }
 
         if (action is null)
         {
             return false;
         }
 
-        ThreadPool.QueueUserWorkItem(_ => action());
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            action();
+            TryAutoPassThroughForFocusedElement();
+        });
+        return true;
+    }
+
+    private bool TryResolveHeadingLevelNavigation(uint vkCode, bool shiftDown, out Action? action)
+    {
+        int level = vkCode switch
+        {
+            Vk1 => 1,
+            Vk2 => 2,
+            Vk3 => 3,
+            Vk4 => 4,
+            Vk5 => 5,
+            Vk6 => 6,
+            Vk7 => 7,
+            Vk8 => 8,
+            Vk9 => 9,
+            _ => 0
+        };
+
+        if (level == 0)
+        {
+            action = null;
+            return false;
+        }
+
+        action = () =>
+        {
+            if (shiftDown)
+            {
+                _moveToPreviousHeadingLevel(level);
+            }
+            else
+            {
+                _moveToNextHeadingLevel(level);
+            }
+        };
         return true;
     }
 
@@ -777,6 +1010,98 @@ public sealed class KeyboardCommandManager : IDisposable
         _browserAutoFocusOnEdit = true;
         _browserEditDirty = false;
         PlayNavigationAlertTone();
+    }
+
+    private void EnterAutoFocusOnInteractiveElement()
+    {
+        _browserBrowseMode = false;
+        _browserAutoFocusOnEdit = false;
+        _browserEditDirty = false;
+        PlayNavigationAlertTone();
+        DateTime now = DateTime.UtcNow;
+        if (now - _lastAutoFocusModeAnnouncementUtc > AutoFocusModeAnnouncementWindow)
+        {
+            _lastAutoFocusModeAnnouncementUtc = now;
+            ThreadPool.QueueUserWorkItem(_ => _speakBrowserMessage("تم تفعيل وضع التركيز تلقائيا."));
+        }
+    }
+
+    private void TryAutoPassThroughForFocusedElement()
+    {
+        if (!_browserBrowseMode)
+        {
+            return;
+        }
+
+        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+        if (focused is null || !FocusSnapshotReader.IsBrowserContext(focused))
+        {
+            return;
+        }
+
+        if (!ShouldAutoPassThroughForElement(focused))
+        {
+            return;
+        }
+
+        if (FocusSnapshotReader.ResolveWebSemanticRole(focused) == "web_edit")
+        {
+            EnterAutoFocusOnEditField();
+            return;
+        }
+
+        EnterAutoFocusOnInteractiveElement();
+    }
+
+    private static bool ShouldAutoPassThroughForElement(AutomationElement element)
+    {
+        string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+        if (semanticRole is "web_edit" or "web_combobox" or "web_radio" or "web_tab" or "web_menuitem")
+        {
+            return true;
+        }
+
+        if (semanticRole is "web_link" or "web_button" or "web_togglebutton" or "web_checkbox")
+        {
+            return false;
+        }
+
+        string role = FocusSnapshotReader.ResolveRole(element);
+        if (role is "menuitem" or "tabitem" or "treeitem" or "slider" or "spinner")
+        {
+            return true;
+        }
+
+        if (IsInteractiveGridCell(element))
+        {
+            return true;
+        }
+
+        // List items in rich widgets often need arrow-key interaction once focused,
+        // but plain web list items should stay in browse mode.
+        return role == "listitem" && element.Current.IsKeyboardFocusable;
+    }
+
+    private static bool IsInteractiveGridCell(AutomationElement element)
+    {
+        string role = FocusSnapshotReader.ResolveRole(element);
+        if (role is not "dataitem" and not "custom")
+        {
+            return false;
+        }
+
+        try
+        {
+            if (element.TryGetCurrentPattern(GridItemPattern.Pattern, out _))
+            {
+                return element.Current.IsKeyboardFocusable;
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
     }
 
     private bool ShouldLeaveAutoFocusedEdit(
