@@ -311,7 +311,7 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
         {
             ErrorLogger.LogWarning(
                 nameof(SimpleLuaStyleScriptEngine),
-                $"تعذر فك ترميز سكربت Lua كـ UTF-8 صريح، سيتم استخدام UTF-8 المتسامح. path={scriptPath}");
+                $"تعذر فك ترميز سكربت Lua كـ UTF-8 صريح، سيتم استخدام UTF-8 المتسامح. يجب حفظ جميع سكربتات Lua بترميز UTF-8. path={scriptPath}");
             return Encoding.UTF8.GetString(bytes);
         }
     }
