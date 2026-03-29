@@ -751,14 +751,17 @@ public static class FocusSnapshotReader
     internal static bool IsBrowserContext(AutomationElement element)
     {
         string processName = ResolveProcessName(element);
-        if (processName is "chrome" or "msedge" or "firefox" or "electron" or "code" or "teams")
+        string className = element.Current.ClassName ?? string.Empty;
+        bool isKnownBrowserProcess = processName is "chrome" or "msedge" or "firefox" or "electron" or "code" or "teams";
+        bool hasBrowserClass = className.Contains("Chrome", StringComparison.OrdinalIgnoreCase) ||
+                               className.Contains("Mozilla", StringComparison.OrdinalIgnoreCase);
+
+        if (!isKnownBrowserProcess && !hasBrowserClass)
         {
-            return true;
+            return false;
         }
 
-        string className = element.Current.ClassName ?? string.Empty;
-        return className.Contains("Chrome", StringComparison.OrdinalIgnoreCase) ||
-               className.Contains("Mozilla", StringComparison.OrdinalIgnoreCase);
+        return IsWithinBrowserDocumentSurface(element);
     }
 
     internal static string ResolveWebSemanticRole(AutomationElement element)
@@ -1595,5 +1598,79 @@ public static class FocusSnapshotReader
         }
 
         return null;
+    }
+
+    private static bool IsWithinBrowserDocumentSurface(AutomationElement element)
+    {
+        AutomationElement? documentLikeAncestor = FindAncestor(
+            element,
+            current =>
+            {
+                string role = ResolveRole(current);
+                if (role == "document")
+                {
+                    return true;
+                }
+
+                string className = current.Current.ClassName ?? string.Empty;
+                return className.Contains("Chrome_RenderWidgetHostHWND", StringComparison.OrdinalIgnoreCase) ||
+                       className.Contains("MozillaContentWindowClass", StringComparison.OrdinalIgnoreCase);
+            });
+
+        if (documentLikeAncestor is null)
+        {
+            return false;
+        }
+
+        AutomationElement? topLevelEditableAncestor = FindAncestor(
+            element,
+            current =>
+            {
+                string role = ResolveRole(current);
+                if (role is not "edit" and not "combobox")
+                {
+                    return false;
+                }
+
+                string automationId = current.Current.AutomationId ?? string.Empty;
+                string name = ResolveName(current);
+                string lowerName = name.ToLowerInvariant();
+
+                return automationId.Contains("Address", StringComparison.OrdinalIgnoreCase) ||
+                       automationId.Contains("Omnibox", StringComparison.OrdinalIgnoreCase) ||
+                       lowerName.Contains("address", StringComparison.OrdinalIgnoreCase) ||
+                       lowerName.Contains("adresse", StringComparison.OrdinalIgnoreCase) ||
+                       lowerName.Contains("search", StringComparison.OrdinalIgnoreCase) ||
+                       lowerName.Contains("recherche", StringComparison.OrdinalIgnoreCase);
+            });
+
+        return topLevelEditableAncestor is null || SameElement(topLevelEditableAncestor, documentLikeAncestor);
+    }
+
+    private static bool SameElement(AutomationElement first, AutomationElement second)
+    {
+        try
+        {
+            int[]? left = first.GetRuntimeId();
+            int[]? right = second.GetRuntimeId();
+            if (left is null || right is null || left.Length != right.Length)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < left.Length; index++)
+            {
+                if (left[index] != right[index])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

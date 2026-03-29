@@ -42,19 +42,21 @@ internal sealed class BrowserAccessibilityAdapter
 
     private static bool IsBrowserContext(AutomationElement element, string processName, string sourceApi)
     {
-        if (BrowserProcesses.Contains(processName))
-        {
-            return true;
-        }
-
         if (sourceApi.Contains("IA2", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
 
         string className = element.Current.ClassName ?? string.Empty;
-        return className.Contains("Chrome", StringComparison.OrdinalIgnoreCase) ||
-               className.Contains("Mozilla", StringComparison.OrdinalIgnoreCase);
+        bool hasBrowserClass = className.Contains("Chrome", StringComparison.OrdinalIgnoreCase) ||
+                               className.Contains("Mozilla", StringComparison.OrdinalIgnoreCase);
+
+        if (!BrowserProcesses.Contains(processName) && !hasBrowserClass)
+        {
+            return false;
+        }
+
+        return IsWithinBrowserDocumentSurface(element);
     }
 
     private static string ResolveSemanticRole(
@@ -185,6 +187,28 @@ internal sealed class BrowserAccessibilityAdapter
         }
 
         return string.Join(" | ", parts.Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static bool IsWithinBrowserDocumentSurface(AutomationElement element)
+    {
+        AutomationElement? current = element;
+        while (current is not null)
+        {
+            string role = current.Current.ControlType?.ProgrammaticName?.Replace("ControlType.", "").ToLowerInvariant()
+                ?? "control";
+            string className = current.Current.ClassName ?? string.Empty;
+
+            if (role == "document" ||
+                className.Contains("Chrome_RenderWidgetHostHWND", StringComparison.OrdinalIgnoreCase) ||
+                className.Contains("MozillaContentWindowClass", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            current = TreeWalker.ControlViewWalker.GetParent(current);
+        }
+
+        return false;
     }
 }
 
