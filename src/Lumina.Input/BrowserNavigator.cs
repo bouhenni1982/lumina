@@ -1085,14 +1085,18 @@ public static class BrowserNavigator
         }
 
         string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
-        if (semanticRole == "web_control")
+        if (semanticRole is "web_control" or "web_document")
         {
             return false;
         }
 
-        if (semanticRole is "web_document" or "web_landmark" or "web_table" or "web_list" or "web_dialog" or "web_article" or "web_figure" or "web_grouping")
+        if (semanticRole is "web_landmark" or "web_table" or "web_list" or "web_dialog" or "web_article" or "web_figure" or "web_grouping")
         {
-            return true;
+            string containerName = FocusSnapshotReader.ResolveName(element);
+            if (!string.IsNullOrWhiteSpace(containerName) && containerName != "عنصر غير مسمى")
+            {
+                return true;
+            }
         }
 
         string readableText = GetReadableElementText(element);

@@ -588,7 +588,26 @@ public static class BrowserVirtualBuffer
         {
         }
 
-        return item.Summary;
+        string parentSummary = item.ParentSummary ?? string.Empty;
+        string lineSummary = item.Summary ?? string.Empty;
+
+        if (item.LineIndexWithinElement <= 0 || string.IsNullOrWhiteSpace(parentSummary))
+        {
+            return string.IsNullOrWhiteSpace(parentSummary) ? lineSummary : parentSummary;
+        }
+
+        if (string.IsNullOrWhiteSpace(lineSummary))
+        {
+            return parentSummary;
+        }
+
+        if (string.Equals(parentSummary, lineSummary, StringComparison.OrdinalIgnoreCase) ||
+            parentSummary.Contains(lineSummary, StringComparison.OrdinalIgnoreCase))
+        {
+            return parentSummary;
+        }
+
+        return $"{parentSummary}. {lineSummary}";
     }
 
     private static string SafeRuntimeId(AutomationElement element)
