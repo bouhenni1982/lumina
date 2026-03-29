@@ -531,6 +531,8 @@ public sealed class KeyboardCommandManager : IDisposable
         bool winDown = IsKeyCurrentlyDown(VkLWin) || IsKeyCurrentlyDown(VkRWin);
         bool altGrDown = IsKeyCurrentlyDown(VkRMenu);
 
+        SyncBrowserModeToFocusedContext();
+
         if (ShouldLeaveAutoFocusedEdit(vkCode, controlDown, altDown, winDown))
         {
             _browserBrowseMode = true;
@@ -1026,6 +1028,34 @@ public sealed class KeyboardCommandManager : IDisposable
         }
 
         return true;
+    }
+
+    private void SyncBrowserModeToFocusedContext()
+    {
+        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+        if (focused is null || !FocusSnapshotReader.IsBrowserContext(focused))
+        {
+            _browserAutoFocusOnEdit = false;
+            _browserEditDirty = false;
+            return;
+        }
+
+        if (ShouldAutoPassThroughForElement(focused))
+        {
+            if (FocusSnapshotReader.ResolveWebSemanticRole(focused) == "web_edit")
+            {
+                _browserBrowseMode = false;
+                _browserAutoFocusOnEdit = true;
+                _browserEditDirty = false;
+            }
+
+            return;
+        }
+
+        _browserBrowseMode = true;
+        _browserAutoFocusOnEdit = false;
+        _browserEditDirty = false;
+        BrowserVirtualBuffer.SyncToElement(focused);
     }
 
     private void EnterAutoFocusOnEditField()
