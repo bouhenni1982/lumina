@@ -351,7 +351,7 @@ public static class BrowserNavigator
     public static string MoveToNextFocusableElement() => MoveToFocusableElement(moveNext: true);
     public static string MoveToPreviousFocusableElement() => MoveToFocusableElement(moveNext: false);
     public static string ReadCurrentTableContext() => DescribeCurrentTableContext();
-    public static List<ElementsListItem> GetElementsListItems(string itemType)
+    internal static List<ElementsListItem> GetElementsListItems(string itemType)
     {
         AutomationElement? current = FocusSnapshotReader.GetFocusedElement();
         if (current is null || !FocusSnapshotReader.IsBrowserContext(current))
