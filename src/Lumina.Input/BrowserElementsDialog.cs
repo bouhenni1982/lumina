@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace Lumina.Input;
 
@@ -23,6 +24,7 @@ public sealed class BrowserElementsDialog : IDisposable
     private readonly ObservableCollection<BrowserNavigator.ElementsListItem> _items = [];
     private List<BrowserNavigator.ElementsListItem> _allItems = [];
     private bool _disposed;
+    private bool _allowClose;
     private string _searchText = string.Empty;
     private string? _lastSelectedElementRuntimeId;
     private DateTime _lastSearchInputUtc = DateTime.MinValue;
@@ -110,7 +112,12 @@ public sealed class BrowserElementsDialog : IDisposable
 
         if (_window is not null)
         {
-            _window.Dispatcher.Invoke(() => _window.Close());
+            _window.Dispatcher.Invoke(() =>
+            {
+                _allowClose = true;
+                _window.Close();
+                Dispatcher.CurrentDispatcher.InvokeShutdown();
+            });
         }
     }
 
@@ -285,20 +292,18 @@ public sealed class BrowserElementsDialog : IDisposable
             };
             _window.Closing += (_, args) =>
             {
-                args.Cancel = true;
-                _window.Hide();
+                if (!_allowClose)
+                {
+                    args.Cancel = true;
+                    _window.Hide();
+                }
             };
 
             UpdateButtonsState();
             UpdatePreview();
 
-            var application = new Application
-            {
-                ShutdownMode = ShutdownMode.OnExplicitShutdown
-            };
-
             _ready.Set();
-            application.Run();
+            Dispatcher.Run();
         }
         catch (Exception exception)
         {
