@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
+using Lumina.Core.Services;
 
 namespace Lumina.Input;
 
@@ -601,11 +602,19 @@ public sealed class KeyboardCommandManager : IDisposable
             !altDown &&
             !winDown &&
             !_textReviewMode &&
-            IsBrowserArrowReadingContext(vkCode))
+            IsDirectionalReadingKey(vkCode))
         {
-            if (TryHandleBrowserArrowReading(vkCode, controlDown))
+            bool canArrowRead = IsBrowserArrowReadingContext(vkCode);
+            if (canArrowRead)
             {
-                return (IntPtr)1;
+                if (TryHandleBrowserArrowReading(vkCode, controlDown))
+                {
+                    return (IntPtr)1;
+                }
+            }
+            else if (IsBrowserContext())
+            {
+                LogBrowserCommandDecision(vkCode, "ignored", "الأسهم ليست في سياق قراءة ويب صالح.");
             }
         }
 
@@ -644,11 +653,19 @@ public sealed class KeyboardCommandManager : IDisposable
             !altDown &&
             !winDown &&
             !_textReviewMode &&
-            IsBrowserNavigationContext())
+            IsPotentialBrowserNavigationKey(vkCode))
         {
-            if (TryHandleBrowserNavigation(vkCode, shiftDown))
+            bool canNavigate = IsBrowserNavigationContext();
+            if (canNavigate)
             {
-                return (IntPtr)1;
+                if (TryHandleBrowserNavigation(vkCode, shiftDown))
+                {
+                    return (IntPtr)1;
+                }
+            }
+            else if (IsBrowserContext())
+            {
+                LogBrowserCommandDecision(vkCode, "ignored", "الحرف أو الأمر السريع خارج سياق التصفح الحالي.");
             }
         }
 
@@ -786,6 +803,7 @@ public sealed class KeyboardCommandManager : IDisposable
     {
         if (!_browserSingleLetterNavigationEnabled)
         {
+            LogBrowserCommandDecision(vkCode, "ignored", "التنقل بالحروف المفردة معطل.");
             return false;
         }
 
@@ -849,9 +867,11 @@ public sealed class KeyboardCommandManager : IDisposable
 
         if (action is null)
         {
+            LogBrowserCommandDecision(vkCode, "ignored", "لا يوجد أمر تصفح مربوط لهذا المفتاح.");
             return false;
         }
 
+        LogBrowserCommandDecision(vkCode, "execute", shiftDown ? "تنقل سابق." : "تنقل تال.");
         ThreadPool.QueueUserWorkItem(_ =>
         {
             action();
@@ -911,6 +931,7 @@ public sealed class KeyboardCommandManager : IDisposable
 
         if (text is null)
         {
+            LogBrowserCommandDecision(vkCode, "ignored", controlDown ? "لا توجد قراءة ويب معرفة لهذا السهم مع Ctrl." : "لا توجد قراءة ويب معرفة لهذا السهم.");
             return false;
         }
 
@@ -919,6 +940,7 @@ public sealed class KeyboardCommandManager : IDisposable
             EnterAutoFocusOnEditField();
         }
 
+        LogBrowserCommandDecision(vkCode, "execute", controlDown ? "قراءة ويب مع Ctrl." : "قراءة ويب.");
         ThreadPool.QueueUserWorkItem(_ => _speakBrowserMessage(text));
         return true;
     }
@@ -936,9 +958,11 @@ public sealed class KeyboardCommandManager : IDisposable
 
         if (action is null)
         {
+            LogBrowserCommandDecision(vkCode, "ignored", "لا توجد حركة جدول معرفة لهذا المفتاح.");
             return false;
         }
 
+        LogBrowserCommandDecision(vkCode, "execute", "تنقل داخل جدول.");
         ThreadPool.QueueUserWorkItem(_ => action());
         return true;
     }
@@ -1181,6 +1205,41 @@ public sealed class KeyboardCommandManager : IDisposable
     }
 
     private static bool IsDirectionalReadingKey(uint vkCode) => vkCode is VkUp or VkDown or VkLeft or VkRight;
+
+    private static bool IsPotentialBrowserNavigationKey(uint vkCode) =>
+        vkCode is
+            VkH or VkK or VkV or VkU or VkE or VkG or VkM or VkS or VkQ or VkO or VkP or VkN or
+            VkB or VkX or VkR or VkC or VkD or VkT or VkY or VkLBrowser or VkI or VkA or VkF or
+            VkComma or Vk1 or Vk2 or Vk3 or Vk4 or Vk5 or Vk6 or Vk7 or Vk8 or Vk9;
+
+    private void LogBrowserCommandDecision(uint vkCode, string decision, string detail)
+    {
+        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+        string process = focused is null ? "none" : FocusSnapshotReader.ResolveProcessName(focused);
+        string role = focused is null ? "none" : FocusSnapshotReader.ResolveRole(focused);
+        string semanticRole = focused is null ? "none" : FocusSnapshotReader.ResolveWebSemanticRole(focused);
+        string name = focused is null ? "none" : FocusSnapshotReader.ResolveName(focused);
+
+        ErrorLogger.LogInfo(
+            nameof(KeyboardCommandManager),
+            $"BrowserCommand {decision}: key={FormatVirtualKey(vkCode)}, browseMode={_browserBrowseMode}, singleLetter={_browserSingleLetterNavigationEnabled}, textReview={_textReviewMode}, process={process}, role={role}, semanticRole={semanticRole}, name={name}. {detail}");
+    }
+
+    private static string FormatVirtualKey(uint vkCode) =>
+        vkCode switch
+        {
+            VkUp => "Up",
+            VkDown => "Down",
+            VkLeft => "Left",
+            VkRight => "Right",
+            VkReturn => "Enter",
+            VkSpace => "Space",
+            VkTab => "Tab",
+            VkEscape => "Escape",
+            VkComma => ",",
+            _ when vkCode is >= 0x30 and <= 0x5A => ((char)vkCode).ToString(),
+            _ => $"VK_{vkCode:X2}"
+        };
 
     private static bool IsKeyCurrentlyDown(uint virtualKey) => (GetAsyncKeyState((int)virtualKey) & 0x8000) != 0;
 
