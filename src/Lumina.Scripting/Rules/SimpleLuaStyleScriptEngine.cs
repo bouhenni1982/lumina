@@ -2,12 +2,14 @@ using Lumina.Core.Abstractions;
 using Lumina.Core.Models;
 using Lumina.Core.Services;
 using NLua;
+using System.Text;
 
 namespace Lumina.Scripting.Rules;
 
 public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
 {
     private readonly Dictionary<string, Lua> _luaStates = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, LuaStateDiagnostics> _stateDiagnostics = new(StringComparer.OrdinalIgnoreCase);
     private readonly string _scriptsDirectory;
     private readonly string _userScriptsDirectory;
 
@@ -21,7 +23,9 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
     {
         try
         {
-            Lua lua = GetOrCreateState(screenEvent.Node.SourceProcess);
+            string normalizedProcessName = NormalizeProcessName(screenEvent.Node.SourceProcess);
+            Lua lua = GetOrCreateState(normalizedProcessName);
+            LuaStateDiagnostics diagnostics = GetStateDiagnostics(normalizedProcessName);
 
             LuaTable eventTable = BuildEventTable(lua, screenEvent);
             object[]? results = lua.GetFunction("on_focus_changed")?.Call(eventTable);
@@ -32,11 +36,12 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
             {
                 string action = table["action"]?.ToString() ?? "none";
                 string text = table["text"]?.ToString() ?? string.Empty;
+                LogLuaResult(screenEvent, diagnostics, action, text);
                 if (action == "speak" && IsCorruptedLuaSpeech(text))
                 {
                     ErrorLogger.LogWarning(
                         nameof(SimpleLuaStyleScriptEngine),
-                        $"تم تجاهل نص Lua مشوه للتطبيق {screenEvent.Node.SourceProcess} والرجوع إلى النطق الاحتياطي.");
+                        BuildCorruptedSpeechMessage(screenEvent, diagnostics, text));
                     return BuildFallbackSpeech(screenEvent);
                 }
 
@@ -76,25 +81,45 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
 
     private Lua GetOrCreateState(string processName)
     {
-        string normalizedProcessName = string.IsNullOrWhiteSpace(processName)
-            ? "default"
-            : processName.ToLowerInvariant();
-
-        if (_luaStates.TryGetValue(normalizedProcessName, out Lua? existingLua))
+        if (_luaStates.TryGetValue(processName, out Lua? existingLua))
         {
             return existingLua;
         }
 
         Lua lua = new();
-        foreach (string scriptPath in EnumerateScriptLoadOrder(normalizedProcessName))
+        List<ScriptFileDiagnostic> loadedScripts = [];
+        int loadOrder = 0;
+
+        foreach (string scriptPath in EnumerateScriptLoadOrder(processName))
         {
             if (File.Exists(scriptPath))
             {
+                loadOrder++;
+                ScriptFileDiagnostic fileDiagnostic = InspectScriptFile(scriptPath, loadOrder);
+                loadedScripts.Add(fileDiagnostic);
+                ErrorLogger.LogVerbose(
+                    nameof(SimpleLuaStyleScriptEngine),
+                    $"Lua script load prepare: process={processName}, order={fileDiagnostic.Order}, path={fileDiagnostic.Path}, size={fileDiagnostic.SizeBytes}, bom={fileDiagnostic.ByteOrderMark}, utf8Valid={fileDiagnostic.IsUtf8Valid}, firstBytes={fileDiagnostic.FirstBytesHex}.");
                 lua.DoFile(scriptPath);
             }
         }
 
-        _luaStates[normalizedProcessName] = lua;
+        _luaStates[processName] = lua;
+        _stateDiagnostics[processName] = new LuaStateDiagnostics(processName, loadedScripts);
+
+        if (loadedScripts.Count == 0)
+        {
+            ErrorLogger.LogWarning(
+                nameof(SimpleLuaStyleScriptEngine),
+                $"لم يتم العثور على أي سكربتات Lua للتطبيق {processName}. سيتم استخدام السلوك الاحتياطي فقط عند الحاجة.");
+        }
+        else
+        {
+            ErrorLogger.LogInfo(
+                nameof(SimpleLuaStyleScriptEngine),
+                $"تم تحميل {loadedScripts.Count} سكربت Lua للتطبيق {processName}: {string.Join(" -> ", loadedScripts.Select(script => Path.GetFileName(script.Path)))}");
+        }
+
         return lua;
     }
 
@@ -132,6 +157,16 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
 
         yield return Path.Combine(_userScriptsDirectory, "focus_profile.lua");
         yield return Path.Combine(_userScriptsDirectory, "apps", $"{normalizedProcessName}.lua");
+    }
+
+    private LuaStateDiagnostics GetStateDiagnostics(string normalizedProcessName)
+    {
+        if (_stateDiagnostics.TryGetValue(normalizedProcessName, out LuaStateDiagnostics? diagnostics))
+        {
+            return diagnostics;
+        }
+
+        return new LuaStateDiagnostics(normalizedProcessName, []);
     }
 
     private static LuaTable BuildEventTable(Lua lua, ScreenEvent screenEvent)
@@ -240,6 +275,139 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
         return !hasArabic && questionMarks >= Math.Max(text.Length / 5, 3);
     }
 
+    private static string NormalizeProcessName(string processName) =>
+        string.IsNullOrWhiteSpace(processName)
+            ? "default"
+            : processName.ToLowerInvariant();
+
+    private static ScriptFileDiagnostic InspectScriptFile(string scriptPath, int order)
+    {
+        byte[] bytes = File.ReadAllBytes(scriptPath);
+        return new ScriptFileDiagnostic(
+            Order: order,
+            Path: scriptPath,
+            SizeBytes: bytes.LongLength,
+            ByteOrderMark: DetectByteOrderMark(bytes),
+            IsUtf8Valid: IsValidUtf8(bytes),
+            FirstBytesHex: FormatFirstBytes(bytes));
+    }
+
+    private static string DetectByteOrderMark(byte[] bytes)
+    {
+        if (bytes.Length >= 3 &&
+            bytes[0] == 0xEF &&
+            bytes[1] == 0xBB &&
+            bytes[2] == 0xBF)
+        {
+            return "UTF-8 BOM";
+        }
+
+        if (bytes.Length >= 2 &&
+            bytes[0] == 0xFF &&
+            bytes[1] == 0xFE)
+        {
+            return "UTF-16 LE BOM";
+        }
+
+        if (bytes.Length >= 2 &&
+            bytes[0] == 0xFE &&
+            bytes[1] == 0xFF)
+        {
+            return "UTF-16 BE BOM";
+        }
+
+        return "none";
+    }
+
+    private static bool IsValidUtf8(byte[] bytes)
+    {
+        try
+        {
+            Encoding utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+            _ = utf8.GetString(bytes);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string FormatFirstBytes(byte[] bytes)
+    {
+        int count = Math.Min(bytes.Length, 16);
+        if (count == 0)
+        {
+            return "empty";
+        }
+
+        return Convert.ToHexString(bytes.AsSpan(0, count));
+    }
+
+    private static void LogLuaResult(ScreenEvent screenEvent, LuaStateDiagnostics diagnostics, string action, string text)
+    {
+        if (action != "speak")
+        {
+            ErrorLogger.LogVerbose(
+                nameof(SimpleLuaStyleScriptEngine),
+                $"Lua result: process={screenEvent.Node.SourceProcess}, event={screenEvent.EventType}, action={action}, textLength={text.Length}, scripts={diagnostics.DescribeLoadedScripts()}.");
+            return;
+        }
+
+        ErrorLogger.LogVerbose(
+            nameof(SimpleLuaStyleScriptEngine),
+            $"Lua speak result: process={screenEvent.Node.SourceProcess}, event={screenEvent.EventType}, role={screenEvent.Node.Role}, semanticRole={screenEvent.Node.SemanticRole}, rawText={QuoteForLog(text)}, textLength={text.Length}, hasArabic={ContainsArabic(text)}, questionMarks={CountQuestionMarks(text)}, sourceHint={BuildSpeechSourceHint(screenEvent, text)}, scripts={diagnostics.DescribeLoadedScripts()}.");
+    }
+
+    private static string BuildCorruptedSpeechMessage(ScreenEvent screenEvent, LuaStateDiagnostics diagnostics, string text)
+    {
+        return $"تم تجاهل نص Lua مشوه للتطبيق {screenEvent.Node.SourceProcess} والرجوع إلى النطق الاحتياطي. rawText={QuoteForLog(text)}. sourceHint={BuildSpeechSourceHint(screenEvent, text)}. event={screenEvent.EventType}. role={screenEvent.Node.Role}. semanticRole={screenEvent.Node.SemanticRole}. scripts={diagnostics.DescribeLoadedScripts()}.";
+    }
+
+    private static string BuildSpeechSourceHint(ScreenEvent screenEvent, string text)
+    {
+        List<string> matches = [];
+
+        if (ContainsArabic(text))
+        {
+            matches.Add("contains_arabic");
+        }
+
+        if (ContainsValue(text, screenEvent.Node.Name))
+        {
+            matches.Add("includes_event_name");
+        }
+
+        if (ContainsValue(text, screenEvent.Node.Value))
+        {
+            matches.Add("includes_event_value");
+        }
+
+        if (matches.Count == 0)
+        {
+            matches.Add("likely_literal_or_transformed_text");
+        }
+
+        return string.Join(",", matches);
+    }
+
+    private static bool ContainsValue(string text, string? value) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        text.Contains(value, StringComparison.Ordinal);
+
+    private static bool ContainsArabic(string text) =>
+        text.Any(character => character is >= '\u0600' and <= '\u06FF');
+
+    private static int CountQuestionMarks(string text) =>
+        text.Count(character => character == '?');
+
+    private static string QuoteForLog(string value) =>
+        "\"" + value
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\r", "\\r", StringComparison.Ordinal)
+            .Replace("\n", "\\n", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+
     private static string BuildLiveRegionSpeech(AccessibleNode node)
     {
         List<string> parts = [];
@@ -273,5 +441,31 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
         }
 
         return string.Join(". ", parts.Distinct(StringComparer.Ordinal));
+    }
+
+    private sealed record ScriptFileDiagnostic(
+        int Order,
+        string Path,
+        long SizeBytes,
+        string ByteOrderMark,
+        bool IsUtf8Valid,
+        string FirstBytesHex);
+
+    private sealed record LuaStateDiagnostics(
+        string ProcessName,
+        IReadOnlyList<ScriptFileDiagnostic> LoadedScripts)
+    {
+        public string DescribeLoadedScripts()
+        {
+            if (LoadedScripts.Count == 0)
+            {
+                return "none";
+            }
+
+            return string.Join(
+                " | ",
+                LoadedScripts.Select(script =>
+                    $"#{script.Order}:{Path.GetFileName(script.Path)}[bom={script.ByteOrderMark},utf8={script.IsUtf8Valid},bytes={script.FirstBytesHex}]"));
+        }
     }
 }
