@@ -460,7 +460,9 @@ public static class BrowserNavigator
         }
 
         AutomationElement root = ResolveNavigationRoot(current);
-        List<AutomationElement> elements = EnumerateElements(root).ToList();
+        List<AutomationElement> elements = EnumerateElements(root)
+            .Where(IsPageNavigationCandidate)
+            .ToList();
         if (elements.Count == 0)
         {
             return missingMessage;
@@ -511,7 +513,9 @@ public static class BrowserNavigator
         }
 
         AutomationElement root = ResolveNavigationRoot(current);
-        List<AutomationElement> elements = EnumerateElements(root).ToList();
+        List<AutomationElement> elements = EnumerateElements(root)
+            .Where(IsPageNavigationCandidate)
+            .ToList();
         if (elements.Count == 0)
         {
             return missingMessage;
@@ -559,7 +563,9 @@ public static class BrowserNavigator
         }
 
         AutomationElement root = ResolveNavigationRoot(current);
-        List<AutomationElement> elements = EnumerateElements(root).ToList();
+        List<AutomationElement> elements = EnumerateElements(root)
+            .Where(IsPageNavigationCandidate)
+            .ToList();
         if (elements.Count == 0)
         {
             return moveNext
@@ -818,25 +824,36 @@ public static class BrowserNavigator
 
     private static IEnumerable<AutomationElement> EnumerateElements(AutomationElement root)
     {
-        Queue<AutomationElement> queue = new();
-        queue.Enqueue(root);
+        Stack<AutomationElement> stack = new();
+        stack.Push(root);
 
-        while (queue.Count > 0)
+        while (stack.Count > 0)
         {
-            AutomationElement current = queue.Dequeue();
+            AutomationElement current = stack.Pop();
             yield return current;
 
+            List<AutomationElement> children = [];
             AutomationElement? child = TreeWalker.ControlViewWalker.GetFirstChild(current);
             while (child is not null)
             {
-                queue.Enqueue(child);
+                children.Add(child);
                 child = TreeWalker.ControlViewWalker.GetNextSibling(child);
+            }
+
+            for (int index = children.Count - 1; index >= 0; index--)
+            {
+                stack.Push(children[index]);
             }
         }
     }
 
     private static bool IsBufferCandidate(AutomationElement element)
     {
+        if (!IsPageNavigationCandidate(element))
+        {
+            return false;
+        }
+
         string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
         if (semanticRole is "web_control")
         {
@@ -855,6 +872,11 @@ public static class BrowserNavigator
 
     private static bool IsFocusableWebElement(AutomationElement element)
     {
+        if (!IsPageNavigationCandidate(element))
+        {
+            return false;
+        }
+
         string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
         if (semanticRole == "web_control")
         {
@@ -1019,6 +1041,11 @@ public static class BrowserNavigator
 
     private static bool IsTextParagraphCandidate(AutomationElement element)
     {
+        if (!IsPageNavigationCandidate(element))
+        {
+            return false;
+        }
+
         string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
         if (semanticRole is "web_link" or "web_button" or "web_togglebutton" or "web_checkbox" or "web_radio" or "web_combobox" or "web_menuitem" or "web_tab" or "web_separator" or "web_progressbar")
         {
@@ -1043,6 +1070,33 @@ public static class BrowserNavigator
         string role = FocusSnapshotReader.ResolveRole(element);
         return semanticRole is "web_article" or "web_grouping" or "web_blockquote" ||
                role is "text" or "document" or "listitem" or "group";
+    }
+
+    private static bool IsPageNavigationCandidate(AutomationElement element)
+    {
+        if (!FocusSnapshotReader.IsBrowserContext(element))
+        {
+            return false;
+        }
+
+        if (element.Current.IsOffscreen)
+        {
+            return false;
+        }
+
+        string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+        if (semanticRole == "web_control")
+        {
+            return false;
+        }
+
+        if (semanticRole is "web_document" or "web_landmark" or "web_table" or "web_list" or "web_dialog" or "web_article" or "web_figure" or "web_grouping")
+        {
+            return true;
+        }
+
+        string readableText = GetReadableElementText(element);
+        return !string.IsNullOrWhiteSpace(readableText);
     }
 
     private static bool IsNotLinkBlockCandidate(AutomationElement element)
