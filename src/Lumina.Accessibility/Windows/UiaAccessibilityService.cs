@@ -383,8 +383,8 @@ public sealed class UiaAccessibilityService : IAccessibilityService
 
     private static string? ResolveShortcutKey(AutomationElement element)
     {
-        string acceleratorKey = NormalizeMetadataValue(element.Current.AcceleratorKey);
-        string accessKey = NormalizeMetadataValue(element.Current.AccessKey);
+        string? acceleratorKey = NormalizeMetadataValue(element.Current.AcceleratorKey);
+        string? accessKey = NormalizeMetadataValue(element.Current.AccessKey);
 
         if (string.IsNullOrWhiteSpace(acceleratorKey))
         {
@@ -460,7 +460,7 @@ public sealed class UiaAccessibilityService : IAccessibilityService
             }
         }
 
-        string itemStatus = NormalizeMetadataValue(element.Current.ItemStatus);
+        string? itemStatus = NormalizeMetadataValue(element.Current.ItemStatus);
         if (!string.IsNullOrWhiteSpace(itemStatus))
         {
             states.Add(itemStatus);
