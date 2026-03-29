@@ -33,12 +33,69 @@ jobs:
       - name: Publish Windows host
         run: dotnet publish .\src\Lumina.Host\Lumina.Host.csproj --configuration Release --runtime win-x64 --self-contained true --output .\artifacts\Lumina.Host
 
-      - name: Create ZIP package
+      - name: Prepare delta package
         shell: pwsh
-        run: Compress-Archive -Path .\artifacts\Lumina.Host\* -DestinationPath .\artifacts\lumina-windows.zip -Force
+        run: |
+          $publishDir = Resolve-Path '.\artifacts\Lumina.Host'
+          $deltaDir = Join-Path $PWD 'artifacts\Lumina.Host.Delta'
+          if (Test-Path $deltaDir) {
+            Remove-Item -LiteralPath $deltaDir -Recurse -Force
+          }
 
-      - name: Upload Windows artifact
+          New-Item -ItemType Directory -Path $deltaDir | Out-Null
+
+          $includePatterns = @(
+            'Lumina.Host.exe',
+            'Lumina.Host.dll',
+            'Lumina.Host.pdb',
+            'Lumina.Host.deps.json',
+            'Lumina.Host.runtimeconfig.json',
+            'Lumina.*.dll',
+            'Lumina.*.pdb',
+            'NLua.dll',
+            'KeraLua.dll',
+            'Microsoft.Extensions.*.dll',
+            'System.Speech.dll'
+          )
+
+          foreach ($pattern in $includePatterns) {
+            $matches = Get-ChildItem -Path $publishDir -Filter $pattern -Recurse -File -ErrorAction SilentlyContinue
+            foreach ($match in $matches) {
+              $relativePath = $match.FullName.Substring($publishDir.Path.Length).TrimStart('\')
+              $destinationPath = Join-Path $deltaDir $relativePath
+              $destinationDirectory = Split-Path -Parent $destinationPath
+              if (-not (Test-Path $destinationDirectory)) {
+                New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
+              }
+
+              Copy-Item -LiteralPath $match.FullName -Destination $destinationPath -Force
+            }
+          }
+
+          foreach ($directoryName in @('scripts', 'config')) {
+            $sourceDirectory = Join-Path $publishDir $directoryName
+            if (-not (Test-Path $sourceDirectory)) {
+              continue
+            }
+
+            $destinationDirectory = Join-Path $deltaDir $directoryName
+            Copy-Item -LiteralPath $sourceDirectory -Destination $destinationDirectory -Recurse -Force
+          }
+
+      - name: Create ZIP packages
+        shell: pwsh
+        run: |
+          Compress-Archive -Path .\artifacts\Lumina.Host\* -DestinationPath .\artifacts\lumina-windows.zip -Force
+          Compress-Archive -Path .\artifacts\Lumina.Host.Delta\* -DestinationPath .\artifacts\lumina-windows-delta.zip -Force
+
+      - name: Upload Windows full artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lumina-windows
+          name: lumina-windows-full
           path: .\artifacts\lumina-windows.zip
+
+      - name: Upload Windows delta artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lumina-windows-delta
+          path: .\artifacts\lumina-windows-delta.zip
