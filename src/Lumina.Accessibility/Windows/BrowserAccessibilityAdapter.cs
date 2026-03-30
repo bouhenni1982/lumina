@@ -245,6 +245,28 @@ internal sealed class BrowserAccessibilityAdapter
             current = TreeWalker.ControlViewWalker.GetParent(current);
         }
 
+        string focusedRole = element.Current.ControlType?.ProgrammaticName?.Replace("ControlType.", "").ToLowerInvariant()
+            ?? "control";
+        if (focusedRole is not "window" and not "pane" and not "group" and not "document" and not "custom")
+        {
+            return false;
+        }
+
+        current = element;
+        while (current is not null)
+        {
+            string className = current.Current.ClassName ?? string.Empty;
+            if (className.Contains("Chrome_WidgetWin", StringComparison.OrdinalIgnoreCase) ||
+                className.Contains("Chrome_RenderWidgetHostHWND", StringComparison.OrdinalIgnoreCase) ||
+                className.Contains("MozillaWindowClass", StringComparison.OrdinalIgnoreCase) ||
+                className.Contains("MozillaContentWindowClass", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            current = TreeWalker.ControlViewWalker.GetParent(current);
+        }
+
         return false;
     }
 }

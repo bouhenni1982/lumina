@@ -1797,7 +1797,24 @@ public static class FocusSnapshotReader
 
             if (documentLikeAncestor is null)
             {
-                return false;
+                AutomationElement? browserWindowAncestor = FindAncestor(
+                    element,
+                    current =>
+                    {
+                        string className = current.Current.ClassName ?? string.Empty;
+                        return className.Contains("Chrome_WidgetWin", StringComparison.OrdinalIgnoreCase) ||
+                               className.Contains("Chrome_RenderWidgetHostHWND", StringComparison.OrdinalIgnoreCase) ||
+                               className.Contains("MozillaWindowClass", StringComparison.OrdinalIgnoreCase) ||
+                               className.Contains("MozillaContentWindowClass", StringComparison.OrdinalIgnoreCase);
+                    });
+
+                if (browserWindowAncestor is null)
+                {
+                    return false;
+                }
+
+                string focusedRole = ResolveRole(element);
+                return focusedRole is "window" or "pane" or "group" or "document" or "custom";
             }
 
             AutomationElement? topLevelEditableAncestor = FindAncestor(
