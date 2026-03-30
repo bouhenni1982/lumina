@@ -4,9 +4,12 @@ namespace Lumina.Core.Services;
 
 public sealed class EventFilter
 {
+    private static readonly TimeSpan GeneralDuplicateWindow = TimeSpan.FromMilliseconds(120);
+    private static readonly TimeSpan BrowserFocusDuplicateWindow = TimeSpan.FromMilliseconds(350);
     private ScreenEvent? _lastEvent;
     private DateTimeOffset _lastTimestampUtc = DateTimeOffset.MinValue;
     private readonly Dictionary<string, DateTimeOffset> _recentLiveEventKeys = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DateTimeOffset> _recentFocusEventKeys = new(StringComparer.Ordinal);
 
     public bool ShouldProcess(ScreenEvent screenEvent)
     {
@@ -20,17 +23,52 @@ public sealed class EventFilter
             }
         }
 
+        if (screenEvent.EventType == "focusChanged" &&
+            !ShouldProcessFocusEvent(screenEvent, now))
+        {
+            return false;
+        }
+
         if (_lastEvent is not null &&
             _lastEvent.EventType == screenEvent.EventType &&
             _lastEvent.Node.Name == screenEvent.Node.Name &&
             _lastEvent.Node.Role == screenEvent.Node.Role &&
-            now - _lastTimestampUtc < TimeSpan.FromMilliseconds(120))
+            now - _lastTimestampUtc < GeneralDuplicateWindow)
         {
             return false;
         }
 
         _lastEvent = screenEvent;
         _lastTimestampUtc = now;
+        return true;
+    }
+
+    private bool ShouldProcessFocusEvent(ScreenEvent screenEvent, DateTimeOffset now)
+    {
+        string roleKey = screenEvent.Node.SemanticRole ?? screenEvent.Node.Role;
+        string focusKey = string.Join(
+            "|",
+            screenEvent.Node.SourceProcess,
+            roleKey,
+            NormalizeLivePart(screenEvent.Node.Name),
+            NormalizeLivePart(screenEvent.Node.Value),
+            NormalizeLiveState(screenEvent.Node.StateSummary));
+
+        RemoveExpiredFocusKeys(now);
+
+        if (_recentFocusEventKeys.TryGetValue(focusKey, out DateTimeOffset timestamp))
+        {
+            TimeSpan dedupWindow = screenEvent.Node.ContextKind == "browser"
+                ? BrowserFocusDuplicateWindow
+                : GeneralDuplicateWindow;
+
+            if (now - timestamp < dedupWindow)
+            {
+                return false;
+            }
+        }
+
+        _recentFocusEventKeys[focusKey] = now;
         return true;
     }
 
@@ -71,6 +109,19 @@ public sealed class EventFilter
         foreach (string expiredKey in expiredKeys)
         {
             _recentLiveEventKeys.Remove(expiredKey);
+        }
+    }
+
+    private void RemoveExpiredFocusKeys(DateTimeOffset now)
+    {
+        string[] expiredKeys = _recentFocusEventKeys
+            .Where(pair => now - pair.Value >= TimeSpan.FromSeconds(2))
+            .Select(pair => pair.Key)
+            .ToArray();
+
+        foreach (string expiredKey in expiredKeys)
+        {
+            _recentFocusEventKeys.Remove(expiredKey);
         }
     }
 

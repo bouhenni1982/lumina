@@ -100,6 +100,15 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
                 ErrorLogger.LogVerbose(
                     nameof(SimpleLuaStyleScriptEngine),
                     $"Lua script load prepare: process={processName}, order={fileDiagnostic.Order}, path={fileDiagnostic.Path}, size={fileDiagnostic.SizeBytes}, bom={fileDiagnostic.ByteOrderMark}, utf8Valid={fileDiagnostic.IsUtf8Valid}, firstBytes={fileDiagnostic.FirstBytesHex}.");
+
+                if (!fileDiagnostic.IsUtf8Valid)
+                {
+                    ErrorLogger.LogWarning(
+                        nameof(SimpleLuaStyleScriptEngine),
+                        $"تم تجاهل سكربت Lua غير UTF-8 للتطبيق {processName}. احفظ السكربت بترميز UTF-8 ثم أعد المحاولة. path={scriptPath}");
+                    continue;
+                }
+
                 ExecuteScriptFile(lua, scriptPath);
             }
         }
@@ -294,26 +303,7 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
 
     private static void ExecuteScriptFile(Lua lua, string scriptPath)
     {
-        string scriptContent = ReadScriptTextUtf8(scriptPath);
-        _ = lua.DoString(scriptContent, "@" + scriptPath);
-    }
-
-    private static string ReadScriptTextUtf8(string scriptPath)
-    {
-        byte[] bytes = File.ReadAllBytes(scriptPath);
-        Encoding utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
-
-        try
-        {
-            return utf8.GetString(bytes);
-        }
-        catch (DecoderFallbackException)
-        {
-            ErrorLogger.LogWarning(
-                nameof(SimpleLuaStyleScriptEngine),
-                $"تعذر فك ترميز سكربت Lua كـ UTF-8 صريح، سيتم استخدام UTF-8 المتسامح. يجب حفظ جميع سكربتات Lua بترميز UTF-8. path={scriptPath}");
-            return Encoding.UTF8.GetString(bytes);
-        }
+        _ = lua.DoFile(scriptPath);
     }
 
     private static string DetectByteOrderMark(byte[] bytes)

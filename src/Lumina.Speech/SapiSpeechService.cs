@@ -10,6 +10,7 @@ public sealed class SapiSpeechService : ISpeechService
 {
     private readonly SpeechSynthesizer _synthesizer = new();
     private readonly ConcurrentQueue<SpeechRequest> _queue = new();
+    private readonly object _sync = new();
     private int _isDraining;
     private string? _lastSpokenText;
 
@@ -23,12 +24,22 @@ public sealed class SapiSpeechService : ISpeechService
     {
         try
         {
-            if (request.Interrupt)
+            if (string.IsNullOrWhiteSpace(request.Text))
             {
-                _synthesizer.SpeakAsyncCancelAll();
+                return;
             }
 
-            _lastSpokenText = request.Text;
+            lock (_sync)
+            {
+                if (request.Interrupt)
+                {
+                    _synthesizer.SpeakAsyncCancelAll();
+                    ClearQueue();
+                }
+
+                _lastSpokenText = request.Text;
+            }
+
             _queue.Enqueue(request);
             Drain();
         }
@@ -68,7 +79,10 @@ public sealed class SapiSpeechService : ISpeechService
         {
             while (_queue.TryDequeue(out SpeechRequest? item))
             {
-                _synthesizer.SpeakAsync(item.Text);
+                lock (_sync)
+                {
+                    _synthesizer.SpeakAsync(item.Text);
+                }
             }
         }
         catch (Exception exception)
@@ -86,6 +100,18 @@ public sealed class SapiSpeechService : ISpeechService
 
     public void Dispose()
     {
-        _synthesizer.Dispose();
+        lock (_sync)
+        {
+            _synthesizer.SpeakAsyncCancelAll();
+            ClearQueue();
+            _synthesizer.Dispose();
+        }
+    }
+
+    private void ClearQueue()
+    {
+        while (_queue.TryDequeue(out _))
+        {
+        }
     }
 }

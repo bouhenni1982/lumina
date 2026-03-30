@@ -481,14 +481,9 @@ public static class BrowserNavigator
 
         foreach (AutomationElement candidate in orderedCandidates)
         {
-            try
+            if (TryFocusAndSync(candidate, current, out string summary))
             {
-                candidate.SetFocus();
-                BrowserVirtualBuffer.SyncToElement(candidate);
-                return FocusSnapshotReader.BuildWebSummary(candidate);
-            }
-            catch
-            {
+                return summary;
             }
         }
 
@@ -534,14 +529,9 @@ public static class BrowserNavigator
 
         foreach (AutomationElement candidate in orderedCandidates)
         {
-            try
+            if (TryFocusAndSync(candidate, current, out string summary))
             {
-                candidate.SetFocus();
-                BrowserVirtualBuffer.SyncToElement(candidate);
-                return FocusSnapshotReader.BuildWebSummary(candidate);
-            }
-            catch
-            {
+                return summary;
             }
         }
 
@@ -586,14 +576,9 @@ public static class BrowserNavigator
                 continue;
             }
 
-            try
+            if (TryFocusAndSync(candidate, current, out string summary))
             {
-                candidate.SetFocus();
-                BrowserVirtualBuffer.SyncToElement(candidate);
-                return FocusSnapshotReader.BuildWebSummary(candidate);
-            }
-            catch
-            {
+                return summary;
             }
         }
 
@@ -723,17 +708,16 @@ public static class BrowserNavigator
                 : "لا يوجد عنصر تفاعلي سابق في الصفحة.";
         }
 
-        AutomationElement target = elements[targetIndex];
-        try
+        int step = moveNext ? 1 : -1;
+        for (int index = targetIndex; index >= 0 && index < elements.Count; index += step)
         {
-            target.SetFocus();
-            BrowserVirtualBuffer.SyncToElement(target);
-            return FocusSnapshotReader.BuildWebSummary(target);
+            if (TryFocusAndSync(elements[index], current, out string summary))
+            {
+                return summary;
+            }
         }
-        catch
-        {
-            return "تعذر التنقل إلى العنصر التفاعلي المطلوب.";
-        }
+
+        return "تعذر التنقل إلى العنصر التفاعلي المطلوب.";
     }
 
     private static string MoveToAdjacentTableCell(bool moveNext)
@@ -1074,6 +1058,38 @@ public static class BrowserNavigator
             element.SetFocus();
             BrowserVirtualBuffer.SyncToElement(element);
             return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool TryFocusAndSync(AutomationElement candidate, AutomationElement? previous, out string summary)
+    {
+        summary = string.Empty;
+
+        try
+        {
+            candidate.SetFocus();
+            AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+            if (focused is not null && previous is not null && SameElement(focused, previous))
+            {
+                return false;
+            }
+
+            AutomationElement target = focused ?? candidate;
+            BrowserVirtualBuffer.SyncToElement(target);
+            summary = FocusSnapshotReader.BuildWebSummary(target);
+            return true;
+        }
+        catch (ElementNotAvailableException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
         }
         catch
         {
