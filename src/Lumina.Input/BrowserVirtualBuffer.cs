@@ -464,10 +464,10 @@ public static class BrowserVirtualBuffer
         {
             AddReadingSegment(lines, BuildStructuralSummary(element));
 
-            string value = FocusSnapshotReader.TryReadValue(element);
-            if (!string.IsNullOrWhiteSpace(value))
+            string editorValue = FocusSnapshotReader.TryReadValue(element);
+            if (!string.IsNullOrWhiteSpace(editorValue))
             {
-                string normalizedValue = NormalizeReadingText(value);
+                string normalizedValue = NormalizeReadingText(editorValue);
                 if (!normalizedValue.Contains('\n', StringComparison.Ordinal) &&
                     normalizedValue.Length <= 120)
                 {
@@ -475,10 +475,10 @@ public static class BrowserVirtualBuffer
                 }
             }
 
-            string? state = FocusSnapshotReader.ResolveStateSummary(element);
-            if (!string.IsNullOrWhiteSpace(state))
+            string? editorState = FocusSnapshotReader.ResolveStateSummary(element);
+            if (!string.IsNullOrWhiteSpace(editorState))
             {
-                AddReadingSegment(lines, $"الحالة {state}");
+                AddReadingSegment(lines, $"الحالة {editorState}");
             }
 
             return lines;
