@@ -751,18 +751,29 @@ public static class FocusSnapshotReader
 
     internal static bool IsBrowserContext(AutomationElement element)
     {
-        string processName = ResolveProcessName(element);
-        string className = element.Current.ClassName ?? string.Empty;
-        bool isKnownBrowserProcess = processName is "chrome" or "msedge" or "firefox" or "electron" or "code" or "teams";
-        bool hasBrowserClass = className.Contains("Chrome", StringComparison.OrdinalIgnoreCase) ||
-                               className.Contains("Mozilla", StringComparison.OrdinalIgnoreCase);
+        try
+        {
+            string processName = ResolveProcessName(element);
+            string className = element.Current.ClassName ?? string.Empty;
+            bool isKnownBrowserProcess = processName is "chrome" or "msedge" or "firefox" or "electron" or "code" or "teams";
+            bool hasBrowserClass = className.Contains("Chrome", StringComparison.OrdinalIgnoreCase) ||
+                                   className.Contains("Mozilla", StringComparison.OrdinalIgnoreCase);
 
-        if (!isKnownBrowserProcess && !hasBrowserClass)
+            if (!isKnownBrowserProcess && !hasBrowserClass)
+            {
+                return false;
+            }
+
+            return IsWithinBrowserDocumentSurface(element);
+        }
+        catch (ElementNotAvailableException)
         {
             return false;
         }
-
-        return IsWithinBrowserDocumentSurface(element);
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     internal static string ResolveWebSemanticRole(AutomationElement element)
@@ -1066,12 +1077,30 @@ public static class FocusSnapshotReader
         return element.Current.IsKeyboardFocusable || element.Current.HasKeyboardFocus;
     }
 
-    internal static string ResolveName(AutomationElement element) =>
-        string.IsNullOrWhiteSpace(element.Current.Name) ? "عنصر غير مسمى" : element.Current.Name;
+    internal static string ResolveName(AutomationElement element)
+    {
+        try
+        {
+            return string.IsNullOrWhiteSpace(element.Current.Name) ? "عنصر غير مسمى" : element.Current.Name;
+        }
+        catch (ElementNotAvailableException)
+        {
+            return "عنصر غير متاح";
+        }
+    }
 
-    internal static string ResolveRole(AutomationElement element) =>
-        element.Current.ControlType?.ProgrammaticName?.Replace("ControlType.", "").ToLowerInvariant()
-        ?? "control";
+    internal static string ResolveRole(AutomationElement element)
+    {
+        try
+        {
+            return element.Current.ControlType?.ProgrammaticName?.Replace("ControlType.", "").ToLowerInvariant()
+                ?? "control";
+        }
+        catch (ElementNotAvailableException)
+        {
+            return "unavailable";
+        }
+    }
 
     internal static string DescribeRole(AutomationElement element)
     {
@@ -1681,12 +1710,34 @@ public static class FocusSnapshotReader
         AutomationElement? current = element;
         while (current is not null)
         {
-            if (predicate(current))
+            try
             {
-                return current;
+                if (predicate(current))
+                {
+                    return current;
+                }
+            }
+            catch (ElementNotAvailableException)
+            {
+                return null;
+            }
+            catch (InvalidOperationException)
+            {
+                return null;
             }
 
-            current = TreeWalker.ControlViewWalker.GetParent(current);
+            try
+            {
+                current = TreeWalker.ControlViewWalker.GetParent(current);
+            }
+            catch (ElementNotAvailableException)
+            {
+                return null;
+            }
+            catch (InvalidOperationException)
+            {
+                return null;
+            }
         }
 
         return null;
@@ -1694,49 +1745,60 @@ public static class FocusSnapshotReader
 
     private static bool IsWithinBrowserDocumentSurface(AutomationElement element)
     {
-        AutomationElement? documentLikeAncestor = FindAncestor(
-            element,
-            current =>
-            {
-                string role = ResolveRole(current);
-                if (role == "document")
+        try
+        {
+            AutomationElement? documentLikeAncestor = FindAncestor(
+                element,
+                current =>
                 {
-                    return true;
-                }
+                    string role = ResolveRole(current);
+                    if (role == "document")
+                    {
+                        return true;
+                    }
 
-                string className = current.Current.ClassName ?? string.Empty;
-                return className.Contains("Chrome_RenderWidgetHostHWND", StringComparison.OrdinalIgnoreCase) ||
-                       className.Contains("MozillaContentWindowClass", StringComparison.OrdinalIgnoreCase);
-            });
+                    string className = current.Current.ClassName ?? string.Empty;
+                    return className.Contains("Chrome_RenderWidgetHostHWND", StringComparison.OrdinalIgnoreCase) ||
+                           className.Contains("MozillaContentWindowClass", StringComparison.OrdinalIgnoreCase);
+                });
 
-        if (documentLikeAncestor is null)
+            if (documentLikeAncestor is null)
+            {
+                return false;
+            }
+
+            AutomationElement? topLevelEditableAncestor = FindAncestor(
+                element,
+                current =>
+                {
+                    string role = ResolveRole(current);
+                    if (role is not "edit" and not "combobox")
+                    {
+                        return false;
+                    }
+
+                    string automationId = current.Current.AutomationId ?? string.Empty;
+                    string name = ResolveName(current);
+                    string lowerName = name.ToLowerInvariant();
+
+                    return automationId.Contains("Address", StringComparison.OrdinalIgnoreCase) ||
+                           automationId.Contains("Omnibox", StringComparison.OrdinalIgnoreCase) ||
+                           lowerName.Contains("address", StringComparison.OrdinalIgnoreCase) ||
+                           lowerName.Contains("adresse", StringComparison.OrdinalIgnoreCase) ||
+                           lowerName.Contains("search", StringComparison.OrdinalIgnoreCase) ||
+                           lowerName.Contains("recherche", StringComparison.OrdinalIgnoreCase);
+                });
+
+            return topLevelEditableAncestor is null || SameElement(topLevelEditableAncestor, documentLikeAncestor);
+        }
+        catch (ElementNotAvailableException)
         {
             return false;
         }
-
-        AutomationElement? topLevelEditableAncestor = FindAncestor(
-            element,
-            current =>
-            {
-                string role = ResolveRole(current);
-                if (role is not "edit" and not "combobox")
-                {
-                    return false;
-                }
-
-                string automationId = current.Current.AutomationId ?? string.Empty;
-                string name = ResolveName(current);
-                string lowerName = name.ToLowerInvariant();
-
-                return automationId.Contains("Address", StringComparison.OrdinalIgnoreCase) ||
-                       automationId.Contains("Omnibox", StringComparison.OrdinalIgnoreCase) ||
-                       lowerName.Contains("address", StringComparison.OrdinalIgnoreCase) ||
-                       lowerName.Contains("adresse", StringComparison.OrdinalIgnoreCase) ||
-                       lowerName.Contains("search", StringComparison.OrdinalIgnoreCase) ||
-                       lowerName.Contains("recherche", StringComparison.OrdinalIgnoreCase);
-            });
-
-        return topLevelEditableAncestor is null || SameElement(topLevelEditableAncestor, documentLikeAncestor);
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private static bool SameElement(AutomationElement first, AutomationElement second)

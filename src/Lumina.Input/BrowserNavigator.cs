@@ -833,11 +833,35 @@ public static class BrowserNavigator
             yield return current;
 
             List<AutomationElement> children = [];
-            AutomationElement? child = TreeWalker.ControlViewWalker.GetFirstChild(current);
+            AutomationElement? child;
+            try
+            {
+                child = TreeWalker.ControlViewWalker.GetFirstChild(current);
+            }
+            catch (ElementNotAvailableException)
+            {
+                continue;
+            }
+            catch (InvalidOperationException)
+            {
+                continue;
+            }
+
             while (child is not null)
             {
                 children.Add(child);
-                child = TreeWalker.ControlViewWalker.GetNextSibling(child);
+                try
+                {
+                    child = TreeWalker.ControlViewWalker.GetNextSibling(child);
+                }
+                catch (ElementNotAvailableException)
+                {
+                    break;
+                }
+                catch (InvalidOperationException)
+                {
+                    break;
+                }
             }
 
             for (int index = children.Count - 1; index >= 0; index--)
@@ -1095,33 +1119,44 @@ public static class BrowserNavigator
 
     private static bool IsPageNavigationCandidate(AutomationElement element)
     {
-        if (!FocusSnapshotReader.IsBrowserContext(element))
+        try
         {
-            return false;
-        }
-
-        if (element.Current.IsOffscreen)
-        {
-            return false;
-        }
-
-        string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
-        if (semanticRole is "web_control" or "web_document")
-        {
-            return false;
-        }
-
-        if (semanticRole is "web_landmark" or "web_table" or "web_list" or "web_dialog" or "web_article" or "web_figure" or "web_grouping")
-        {
-            string containerName = FocusSnapshotReader.ResolveName(element);
-            if (!string.IsNullOrWhiteSpace(containerName) && containerName != "عنصر غير مسمى")
+            if (!FocusSnapshotReader.IsBrowserContext(element))
             {
-                return true;
+                return false;
             }
-        }
 
-        string readableText = GetReadableElementText(element);
-        return !string.IsNullOrWhiteSpace(readableText);
+            if (element.Current.IsOffscreen)
+            {
+                return false;
+            }
+
+            string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+            if (semanticRole is "web_control" or "web_document")
+            {
+                return false;
+            }
+
+            if (semanticRole is "web_landmark" or "web_table" or "web_list" or "web_dialog" or "web_article" or "web_figure" or "web_grouping")
+            {
+                string containerName = FocusSnapshotReader.ResolveName(element);
+                if (!string.IsNullOrWhiteSpace(containerName) && containerName != "عنصر غير مسمى")
+                {
+                    return true;
+                }
+            }
+
+            string readableText = GetReadableElementText(element);
+            return !string.IsNullOrWhiteSpace(readableText);
+        }
+        catch (ElementNotAvailableException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private static bool IsNotLinkBlockCandidate(AutomationElement element)
