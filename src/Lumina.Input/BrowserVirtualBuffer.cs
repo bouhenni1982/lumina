@@ -9,10 +9,13 @@ public static class BrowserVirtualBuffer
 {
     private static readonly object Sync = new();
     private static readonly Timer DeferredRefreshTimer = new(OnDeferredRefreshTimerTick);
+    private static readonly TimeSpan BrowserFocusDedupWindow = TimeSpan.FromMilliseconds(350);
     private static BufferSnapshot? _snapshot;
     private static int _currentIndex = -1;
     private static int _textOffset;
     private static PendingRefreshReason _pendingRefreshReason;
+    private static string _lastBrowserFocusEventKey = string.Empty;
+    private static DateTimeOffset _lastBrowserFocusEventUtc = DateTimeOffset.MinValue;
 
     public static string Refresh()
     {
@@ -28,19 +31,31 @@ public static class BrowserVirtualBuffer
         }
 
         AutomationElement root = BrowserNavigator.ResolveNavigationRootForBuffer(focused);
-        List<BufferItem> rawItems = BrowserNavigator
-            .EnumerateBufferCandidates(root)
-            .Select(element =>
+        List<BufferItem> rawItems = [];
+        foreach (AutomationElement element in BrowserNavigator.EnumerateBufferCandidates(root))
+        {
+            try
             {
                 List<string> readingLines = BuildReadingLines(element);
-                return new BufferItem(
-                    RuntimeId: SafeRuntimeId(element),
-                    Element: element,
-                    Summary: ResolveBufferSummary(element, readingLines),
-                    ReadingLines: readingLines);
-            })
-            .Where(item => item.ReadingLines.Count > 0)
-            .ToList();
+                if (readingLines.Count == 0)
+                {
+                    continue;
+                }
+
+                rawItems.Add(
+                    new BufferItem(
+                        RuntimeId: SafeRuntimeId(element),
+                        Element: element,
+                        Summary: ResolveBufferSummary(element, readingLines),
+                        ReadingLines: readingLines));
+            }
+            catch (ElementNotAvailableException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
 
         List<BufferLine> items = ExpandToBufferLines(rawItems);
 
@@ -317,6 +332,11 @@ public static class BrowserVirtualBuffer
 
         lock (Sync)
         {
+            if (reason == PendingRefreshReason.SyncToFocus && IsDuplicateBrowserFocusEvent(screenEvent))
+            {
+                return;
+            }
+
             if (reason == PendingRefreshReason.Refresh || _pendingRefreshReason == PendingRefreshReason.None)
             {
                 _pendingRefreshReason = reason;
@@ -325,6 +345,28 @@ public static class BrowserVirtualBuffer
 
         int delayMs = reason == PendingRefreshReason.Refresh ? 160 : 70;
         DeferredRefreshTimer.Change(delayMs, Timeout.Infinite);
+    }
+
+    private static bool IsDuplicateBrowserFocusEvent(ScreenEvent screenEvent)
+    {
+        string focusKey = string.Join(
+            "|",
+            screenEvent.Node.SourceProcess,
+            screenEvent.Node.Id,
+            screenEvent.Node.SemanticRole ?? screenEvent.Node.Role,
+            screenEvent.Node.Name ?? string.Empty,
+            screenEvent.Node.Value ?? string.Empty);
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        if (string.Equals(_lastBrowserFocusEventKey, focusKey, StringComparison.Ordinal) &&
+            now - _lastBrowserFocusEventUtc < BrowserFocusDedupWindow)
+        {
+            return true;
+        }
+
+        _lastBrowserFocusEventKey = focusKey;
+        _lastBrowserFocusEventUtc = now;
+        return false;
     }
 
     public static bool IsSyncedToFocusedElement()
@@ -459,70 +501,81 @@ public static class BrowserVirtualBuffer
 
     private static List<string> BuildReadingLines(AutomationElement element)
     {
-        List<string> lines = [];
-        if (FocusSnapshotReader.IsEditableBrowserDocument(element))
+        try
         {
-            AddReadingSegment(lines, BuildStructuralSummary(element));
-
-            string editorValue = FocusSnapshotReader.TryReadValue(element);
-            if (!string.IsNullOrWhiteSpace(editorValue))
+            List<string> lines = [];
+            if (FocusSnapshotReader.IsEditableBrowserDocument(element))
             {
-                string normalizedValue = NormalizeReadingText(editorValue);
-                if (!normalizedValue.Contains('\n', StringComparison.Ordinal) &&
-                    normalizedValue.Length <= 120)
+                AddReadingSegment(lines, BuildStructuralSummary(element));
+
+                string editorValue = FocusSnapshotReader.TryReadValue(element);
+                if (!string.IsNullOrWhiteSpace(editorValue))
                 {
-                    AddReadingSegment(lines, $"القيمة {normalizedValue}");
+                    string normalizedValue = NormalizeReadingText(editorValue);
+                    if (!normalizedValue.Contains('\n', StringComparison.Ordinal) &&
+                        normalizedValue.Length <= 120)
+                    {
+                        AddReadingSegment(lines, $"القيمة {normalizedValue}");
+                    }
+                }
+
+                string? editorState = FocusSnapshotReader.ResolveStateSummary(element);
+                if (!string.IsNullOrWhiteSpace(editorState))
+                {
+                    AddReadingSegment(lines, $"الحالة {editorState}");
+                }
+
+                return lines;
+            }
+
+            bool addedRichText = AddReadableTextFromElement(lines, element);
+            if (!addedRichText)
+            {
+                AddReadingSegment(lines, FocusSnapshotReader.BuildWebSummary(element));
+            }
+            else
+            {
+                string structuralSummary = BuildStructuralSummary(element);
+                if (ShouldIncludeStructuralSummary(lines, structuralSummary))
+                {
+                    lines.Insert(0, structuralSummary);
                 }
             }
 
-            string? editorState = FocusSnapshotReader.ResolveStateSummary(element);
-            if (!string.IsNullOrWhiteSpace(editorState))
+            string value = FocusSnapshotReader.TryReadValue(element);
+            if (!string.IsNullOrWhiteSpace(value))
             {
-                AddReadingSegment(lines, $"الحالة {editorState}");
+                AddReadingSegment(lines, $"القيمة {value}");
+            }
+
+            string? state = FocusSnapshotReader.ResolveStateSummary(element);
+            if (!string.IsNullOrWhiteSpace(state))
+            {
+                AddReadingSegment(lines, $"الحالة {state}");
+            }
+
+            string? shortcut = FocusSnapshotReader.ResolveShortcutKey(element);
+            if (!string.IsNullOrWhiteSpace(shortcut))
+            {
+                AddReadingSegment(lines, $"الاختصار {shortcut}");
+            }
+
+            string helpText = element.Current.HelpText ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(helpText))
+            {
+                AddReadingSegment(lines, helpText);
             }
 
             return lines;
         }
-
-        bool addedRichText = AddReadableTextFromElement(lines, element);
-        if (!addedRichText)
+        catch (ElementNotAvailableException)
         {
-            AddReadingSegment(lines, FocusSnapshotReader.BuildWebSummary(element));
+            return [];
         }
-        else
+        catch (InvalidOperationException)
         {
-            string structuralSummary = BuildStructuralSummary(element);
-            if (ShouldIncludeStructuralSummary(lines, structuralSummary))
-            {
-                lines.Insert(0, structuralSummary);
-            }
+            return [];
         }
-
-        string value = FocusSnapshotReader.TryReadValue(element);
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            AddReadingSegment(lines, $"القيمة {value}");
-        }
-
-        string? state = FocusSnapshotReader.ResolveStateSummary(element);
-        if (!string.IsNullOrWhiteSpace(state))
-        {
-            AddReadingSegment(lines, $"الحالة {state}");
-        }
-
-        string? shortcut = FocusSnapshotReader.ResolveShortcutKey(element);
-        if (!string.IsNullOrWhiteSpace(shortcut))
-        {
-            AddReadingSegment(lines, $"الاختصار {shortcut}");
-        }
-
-        string helpText = element.Current.HelpText ?? string.Empty;
-        if (!string.IsNullOrWhiteSpace(helpText))
-        {
-            AddReadingSegment(lines, helpText);
-        }
-
-        return lines;
     }
 
     private static string ResolveBufferSummary(AutomationElement element, IReadOnlyList<string> readingLines)
@@ -608,38 +661,49 @@ public static class BrowserVirtualBuffer
 
     private static string BuildStructuralSummary(AutomationElement element)
     {
-        string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
-        string name = FocusSnapshotReader.ResolveName(element);
-        string? state = FocusSnapshotReader.ResolveStateSummary(element);
-
-        string summary = semanticRole switch
+        try
         {
-            "web_link" => BuildRoleSummary("رابط ويب", name),
-            "web_heading" => BuildRoleSummary("عنوان صفحة", name),
-            "web_edit" => BuildRoleSummary("حقل إدخال ويب", name),
-            "web_button" => BuildRoleSummary("زر ويب", name),
-            "web_togglebutton" => BuildRoleSummary("زر تبديل ويب", name),
-            "web_checkbox" => BuildRoleSummary("خانة اختيار", name),
-            "web_radio" => BuildRoleSummary("زر اختيار ويب", name),
-            "web_combobox" => BuildRoleSummary("مربع خيارات ويب", name),
-            "web_graphic" => BuildRoleSummary("رسم ويب", name),
-            "web_frame" => BuildRoleSummary("إطار ويب", name),
-            "web_tab" => BuildRoleSummary("علامة تبويب ويب", name),
-            "web_menuitem" => BuildRoleSummary("عنصر قائمة ويب", name),
-            "web_table" => BuildRoleSummary("جدول", name),
-            "web_list" => BuildRoleSummary("قائمة ويب", name),
-            "web_listitem" => BuildRoleSummary("عنصر قائمة ويب", name),
-            "web_dialog" => BuildRoleSummary("حوار ويب", name),
-            "web_landmark" => BuildRoleSummary("معلم صفحة", name),
-            _ => string.Empty
-        };
+            string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+            string name = FocusSnapshotReader.ResolveName(element);
+            string? state = FocusSnapshotReader.ResolveStateSummary(element);
 
-        if (string.IsNullOrWhiteSpace(summary))
+            string summary = semanticRole switch
+            {
+                "web_link" => BuildRoleSummary("رابط ويب", name),
+                "web_heading" => BuildRoleSummary("عنوان صفحة", name),
+                "web_edit" => BuildRoleSummary("حقل إدخال ويب", name),
+                "web_button" => BuildRoleSummary("زر ويب", name),
+                "web_togglebutton" => BuildRoleSummary("زر تبديل ويب", name),
+                "web_checkbox" => BuildRoleSummary("خانة اختيار", name),
+                "web_radio" => BuildRoleSummary("زر اختيار ويب", name),
+                "web_combobox" => BuildRoleSummary("مربع خيارات ويب", name),
+                "web_graphic" => BuildRoleSummary("رسم ويب", name),
+                "web_frame" => BuildRoleSummary("إطار ويب", name),
+                "web_tab" => BuildRoleSummary("علامة تبويب ويب", name),
+                "web_menuitem" => BuildRoleSummary("عنصر قائمة ويب", name),
+                "web_table" => BuildRoleSummary("جدول", name),
+                "web_list" => BuildRoleSummary("قائمة ويب", name),
+                "web_listitem" => BuildRoleSummary("عنصر قائمة ويب", name),
+                "web_dialog" => BuildRoleSummary("حوار ويب", name),
+                "web_landmark" => BuildRoleSummary("معلم صفحة", name),
+                _ => string.Empty
+            };
+
+            if (string.IsNullOrWhiteSpace(summary))
+            {
+                return string.Empty;
+            }
+
+            return string.IsNullOrWhiteSpace(state) ? summary : $"{summary}. {state}";
+        }
+        catch (ElementNotAvailableException)
         {
             return string.Empty;
         }
-
-        return string.IsNullOrWhiteSpace(state) ? summary : $"{summary}. {state}";
+        catch (InvalidOperationException)
+        {
+            return string.Empty;
+        }
     }
 
     private static string BuildRoleSummary(string label, string name) =>

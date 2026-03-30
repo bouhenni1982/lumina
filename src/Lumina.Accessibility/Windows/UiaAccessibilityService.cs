@@ -49,6 +49,11 @@ public sealed class UiaAccessibilityService : IAccessibilityService
             return;
         }
 
+        if (!IsCurrentFocusedElement(element))
+        {
+            return;
+        }
+
         RaiseScreenEvent(element, "focusChanged", userInitiated: true, priority: 100);
     }
 
@@ -531,4 +536,41 @@ public sealed class UiaAccessibilityService : IAccessibilityService
 
     private static string? NormalizeMetadataValue(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static bool IsCurrentFocusedElement(AutomationElement candidate)
+    {
+        try
+        {
+            AutomationElement? focusedNow = AutomationElement.FocusedElement;
+            if (focusedNow is null)
+            {
+                return false;
+            }
+
+            int[]? left = candidate.GetRuntimeId();
+            int[]? right = focusedNow.GetRuntimeId();
+            if (left is null || right is null || left.Length != right.Length)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < left.Length; index++)
+            {
+                if (left[index] != right[index])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        catch (ElementNotAvailableException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
 }

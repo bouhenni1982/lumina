@@ -917,23 +917,34 @@ public static class BrowserNavigator
 
     private static bool IsFocusableWebElement(AutomationElement element)
     {
-        if (!IsPageNavigationCandidate(element))
+        try
+        {
+            if (!IsPageNavigationCandidate(element))
+            {
+                return false;
+            }
+
+            string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+            if (semanticRole == "web_control")
+            {
+                return false;
+            }
+
+            if (element.Current.IsKeyboardFocusable)
+            {
+                return true;
+            }
+
+            return semanticRole is "web_link" or "web_button" or "web_edit" or "web_checkbox" or "web_radio" or "web_combobox" or "web_tab" or "web_listitem";
+        }
+        catch (ElementNotAvailableException)
         {
             return false;
         }
-
-        string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
-        if (semanticRole == "web_control")
+        catch (InvalidOperationException)
         {
             return false;
         }
-
-        if (element.Current.IsKeyboardFocusable)
-        {
-            return true;
-        }
-
-        return semanticRole is "web_link" or "web_button" or "web_edit" or "web_checkbox" or "web_radio" or "web_combobox" or "web_tab" or "web_listitem";
     }
 
     private static bool MatchesElementsListType(AutomationElement element, string itemType)

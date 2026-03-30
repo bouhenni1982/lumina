@@ -778,163 +778,174 @@ public static class FocusSnapshotReader
 
     internal static string ResolveWebSemanticRole(AutomationElement element)
     {
-        string role = ResolveRole(element);
-        string localizedRole = (element.Current.LocalizedControlType ?? string.Empty).ToLowerInvariant();
-        string itemType = (element.Current.ItemType ?? string.Empty).ToLowerInvariant();
-        string helpText = (element.Current.HelpText ?? string.Empty).ToLowerInvariant();
-
-        if (role == "hyperlink" || localizedRole.Contains("link"))
+        try
         {
-            return "web_link";
-        }
+            string role = ResolveRole(element);
+            string localizedRole = (element.Current.LocalizedControlType ?? string.Empty).ToLowerInvariant();
+            string itemType = (element.Current.ItemType ?? string.Empty).ToLowerInvariant();
+            string helpText = (element.Current.HelpText ?? string.Empty).ToLowerInvariant();
 
-        if (localizedRole.Contains("heading") || itemType.Contains("heading") || helpText.Contains("heading"))
+            if (role == "hyperlink" || localizedRole.Contains("link"))
+            {
+                return "web_link";
+            }
+
+            if (localizedRole.Contains("heading") || itemType.Contains("heading") || helpText.Contains("heading"))
+            {
+                return "web_heading";
+            }
+
+            if (IsLikelyEditableBrowserDocumentElement(element, role, localizedRole, itemType, helpText))
+            {
+                return "web_edit";
+            }
+
+            if (role == "document" || localizedRole.Contains("document"))
+            {
+                return "web_document";
+            }
+
+            if (role == "edit" || localizedRole.Contains("edit") || localizedRole.Contains("text field"))
+            {
+                return "web_edit";
+            }
+
+            if (role == "image" || localizedRole.Contains("image") || localizedRole.Contains("graphic"))
+            {
+                return "web_graphic";
+            }
+
+            if (role == "separator" || localizedRole.Contains("separator"))
+            {
+                return "web_separator";
+            }
+
+            if (IsLikelyBlockQuoteElement(element, role, localizedRole, itemType, helpText))
+            {
+                return "web_blockquote";
+            }
+
+            if ((role == "pane" || role == "document") &&
+                (localizedRole.Contains("frame") ||
+                 itemType.Contains("frame") ||
+                 itemType.Contains("iframe") ||
+                 helpText.Contains("frame") ||
+                 helpText.Contains("iframe")))
+            {
+                return "web_frame";
+            }
+
+            if (IsLikelyEmbeddedObjectElement(element, role, localizedRole, itemType, helpText))
+            {
+                return "web_embeddedobject";
+            }
+
+            if (role == "button" &&
+                element.TryGetCurrentPattern(TogglePattern.Pattern, out _))
+            {
+                return "web_togglebutton";
+            }
+
+            if (role == "button" || localizedRole.Contains("button"))
+            {
+                return "web_button";
+            }
+
+            if (role.Contains("radio", StringComparison.OrdinalIgnoreCase) || localizedRole.Contains("radio"))
+            {
+                return "web_radio";
+            }
+
+            if (role.Contains("combo", StringComparison.OrdinalIgnoreCase) || localizedRole.Contains("combo box"))
+            {
+                return "web_combobox";
+            }
+
+            if (role == "tabitem" || localizedRole.Contains("tab item"))
+            {
+                return "web_tab";
+            }
+
+            if (role == "menuitem" || localizedRole.Contains("menu item"))
+            {
+                return "web_menuitem";
+            }
+
+            if (role == "treeitem" || localizedRole.Contains("tree item"))
+            {
+                return "web_treeitem";
+            }
+
+            if (localizedRole.Contains("check box") || role.Contains("check", StringComparison.OrdinalIgnoreCase))
+            {
+                return "web_checkbox";
+            }
+
+            if (role == "progressbar" || localizedRole.Contains("progress bar"))
+            {
+                return "web_progressbar";
+            }
+
+            if (role == "table" || localizedRole.Contains("table") || localizedRole.Contains("grid"))
+            {
+                return "web_table";
+            }
+
+            if (role == "list" || localizedRole == "list")
+            {
+                return "web_list";
+            }
+
+            if (role == "listitem" || localizedRole.Contains("list item"))
+            {
+                return "web_listitem";
+            }
+
+            if (localizedRole.Contains("article") || itemType.Contains("article") || helpText.Contains("article"))
+            {
+                return "web_article";
+            }
+
+            if (localizedRole.Contains("figure") || itemType.Contains("figure") || helpText.Contains("figure"))
+            {
+                return "web_figure";
+            }
+
+            if (role == "group" ||
+                localizedRole.Contains("grouping") ||
+                localizedRole.Contains("group") ||
+                itemType.Contains("grouping") ||
+                helpText.Contains("grouping"))
+            {
+                return "web_grouping";
+            }
+
+            if (localizedRole.Contains("dialog") || localizedRole.Contains("alert"))
+            {
+                return "web_dialog";
+            }
+
+            if (localizedRole.Contains("navigation") ||
+                localizedRole.Contains("banner") ||
+                localizedRole.Contains("main") ||
+                localizedRole.Contains("search") ||
+                localizedRole.Contains("content info") ||
+                localizedRole.Contains("complementary") ||
+                itemType.Contains("landmark"))
+            {
+                return "web_landmark";
+            }
+
+            return "web_control";
+        }
+        catch (ElementNotAvailableException)
         {
-            return "web_heading";
+            return "web_control";
         }
-
-        if (IsLikelyEditableBrowserDocumentElement(element, role, localizedRole, itemType, helpText))
+        catch (InvalidOperationException)
         {
-            return "web_edit";
+            return "web_control";
         }
-
-        if (role == "document" || localizedRole.Contains("document"))
-        {
-            return "web_document";
-        }
-
-        if (role == "edit" || localizedRole.Contains("edit") || localizedRole.Contains("text field"))
-        {
-            return "web_edit";
-        }
-
-        if (role == "image" || localizedRole.Contains("image") || localizedRole.Contains("graphic"))
-        {
-            return "web_graphic";
-        }
-
-        if (role == "separator" || localizedRole.Contains("separator"))
-        {
-            return "web_separator";
-        }
-
-        if (IsLikelyBlockQuoteElement(element, role, localizedRole, itemType, helpText))
-        {
-            return "web_blockquote";
-        }
-
-        if ((role == "pane" || role == "document") &&
-            (localizedRole.Contains("frame") ||
-             itemType.Contains("frame") ||
-             itemType.Contains("iframe") ||
-             helpText.Contains("frame") ||
-             helpText.Contains("iframe")))
-        {
-            return "web_frame";
-        }
-
-        if (IsLikelyEmbeddedObjectElement(element, role, localizedRole, itemType, helpText))
-        {
-            return "web_embeddedobject";
-        }
-
-        if (role == "button" &&
-            element.TryGetCurrentPattern(TogglePattern.Pattern, out _))
-        {
-            return "web_togglebutton";
-        }
-
-        if (role == "button" || localizedRole.Contains("button"))
-        {
-            return "web_button";
-        }
-
-        if (role.Contains("radio", StringComparison.OrdinalIgnoreCase) || localizedRole.Contains("radio"))
-        {
-            return "web_radio";
-        }
-
-        if (role.Contains("combo", StringComparison.OrdinalIgnoreCase) || localizedRole.Contains("combo box"))
-        {
-            return "web_combobox";
-        }
-
-        if (role == "tabitem" || localizedRole.Contains("tab item"))
-        {
-            return "web_tab";
-        }
-
-        if (role == "menuitem" || localizedRole.Contains("menu item"))
-        {
-            return "web_menuitem";
-        }
-
-        if (role == "treeitem" || localizedRole.Contains("tree item"))
-        {
-            return "web_treeitem";
-        }
-
-        if (localizedRole.Contains("check box") || role.Contains("check", StringComparison.OrdinalIgnoreCase))
-        {
-            return "web_checkbox";
-        }
-
-        if (role == "progressbar" || localizedRole.Contains("progress bar"))
-        {
-            return "web_progressbar";
-        }
-
-        if (role == "table" || localizedRole.Contains("table") || localizedRole.Contains("grid"))
-        {
-            return "web_table";
-        }
-
-        if (role == "list" || localizedRole == "list")
-        {
-            return "web_list";
-        }
-
-        if (role == "listitem" || localizedRole.Contains("list item"))
-        {
-            return "web_listitem";
-        }
-
-        if (localizedRole.Contains("article") || itemType.Contains("article") || helpText.Contains("article"))
-        {
-            return "web_article";
-        }
-
-        if (localizedRole.Contains("figure") || itemType.Contains("figure") || helpText.Contains("figure"))
-        {
-            return "web_figure";
-        }
-
-        if (role == "group" ||
-            localizedRole.Contains("grouping") ||
-            localizedRole.Contains("group") ||
-            itemType.Contains("grouping") ||
-            helpText.Contains("grouping"))
-        {
-            return "web_grouping";
-        }
-
-        if (localizedRole.Contains("dialog") || localizedRole.Contains("alert"))
-        {
-            return "web_dialog";
-        }
-
-        if (localizedRole.Contains("navigation") ||
-            localizedRole.Contains("banner") ||
-            localizedRole.Contains("main") ||
-            localizedRole.Contains("search") ||
-            localizedRole.Contains("content info") ||
-            localizedRole.Contains("complementary") ||
-            itemType.Contains("landmark"))
-        {
-            return "web_landmark";
-        }
-
-        return "web_control";
     }
 
     internal static bool IsWebHeadingLevel(AutomationElement element, int level)
