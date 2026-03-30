@@ -46,6 +46,7 @@ public static class BrowserVirtualBuffer
                     new BufferItem(
                         RuntimeId: SafeRuntimeId(element),
                         Element: element,
+                        SemanticRole: FocusSnapshotReader.ResolveWebSemanticRole(element),
                         Summary: ResolveBufferSummary(element, readingLines),
                         ReadingLines: readingLines));
             }
@@ -412,6 +413,11 @@ public static class BrowserVirtualBuffer
             int index = _snapshot.Items.FindIndex(item => item.RuntimeId == runtimeId);
             if (index < 0)
             {
+                index = FindClosestSnapshotIndex(_snapshot.Items, element);
+            }
+
+            if (index < 0)
+            {
                 return "العنصر الحالي غير موجود داخل المخزن الظاهري.";
             }
 
@@ -542,28 +548,19 @@ public static class BrowserVirtualBuffer
                 }
             }
 
+            string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+            bool isInteractiveControl = IsInteractiveSemanticRole(semanticRole);
+
             string value = FocusSnapshotReader.TryReadValue(element);
-            if (!string.IsNullOrWhiteSpace(value))
+            if (isInteractiveControl && !string.IsNullOrWhiteSpace(value))
             {
                 AddReadingSegment(lines, $"القيمة {value}");
             }
 
             string? state = FocusSnapshotReader.ResolveStateSummary(element);
-            if (!string.IsNullOrWhiteSpace(state))
+            if (isInteractiveControl && !string.IsNullOrWhiteSpace(state))
             {
                 AddReadingSegment(lines, $"الحالة {state}");
-            }
-
-            string? shortcut = FocusSnapshotReader.ResolveShortcutKey(element);
-            if (!string.IsNullOrWhiteSpace(shortcut))
-            {
-                AddReadingSegment(lines, $"الاختصار {shortcut}");
-            }
-
-            string helpText = element.Current.HelpText ?? string.Empty;
-            if (!string.IsNullOrWhiteSpace(helpText))
-            {
-                AddReadingSegment(lines, helpText);
             }
 
             return lines;
@@ -650,6 +647,7 @@ public static class BrowserVirtualBuffer
                 lines.Add(new BufferLine(
                     RuntimeId: item.RuntimeId,
                     Element: item.Element,
+                    SemanticRole: item.SemanticRole,
                     Summary: lineText,
                     ParentSummary: item.Summary,
                     LineIndexWithinElement: i));
@@ -786,7 +784,17 @@ public static class BrowserVirtualBuffer
             return [];
         }
 
-        string[] separators = [". ", "، ", "\r\n", "\n"];
+        string[] separators = text.Contains('\n', StringComparison.Ordinal)
+            ? ["\r\n", "\n"]
+            : text.Length > 220
+                ? [". ", "؟ ", "! ", "، "]
+                : [];
+
+        if (separators.Length == 0)
+        {
+            return [text.Trim()];
+        }
+
         List<string> working = [text.Trim()];
 
         foreach (string separator in separators)
@@ -1008,7 +1016,19 @@ public static class BrowserVirtualBuffer
 
         if (item.LineIndexWithinElement <= 0 || string.IsNullOrWhiteSpace(parentSummary))
         {
-            return string.IsNullOrWhiteSpace(parentSummary) ? lineSummary : parentSummary;
+            if (string.IsNullOrWhiteSpace(parentSummary))
+            {
+                return lineSummary;
+            }
+
+            if (string.IsNullOrWhiteSpace(lineSummary) || AreSimilarForSpeech(parentSummary, lineSummary))
+            {
+                return parentSummary;
+            }
+
+            return ShouldSuppressParentSummaryForLine(item)
+                ? lineSummary
+                : $"{parentSummary}. {lineSummary}";
         }
 
         if (string.IsNullOrWhiteSpace(lineSummary))
@@ -1016,7 +1036,7 @@ public static class BrowserVirtualBuffer
             return parentSummary;
         }
 
-        if (AreSimilarForSpeech(parentSummary, lineSummary))
+        if (AreSimilarForSpeech(parentSummary, lineSummary) || ShouldSuppressParentSummaryForLine(item))
         {
             return lineSummary;
         }
@@ -1046,6 +1066,75 @@ public static class BrowserVirtualBuffer
         return normalizedParent.Length <= normalizedLine.Length / 2;
     }
 
+    private static bool ShouldSuppressParentSummaryForLine(BufferLine item) =>
+        item.LineIndexWithinElement > 0 &&
+        item.SemanticRole is "web_article" or "web_grouping" or "web_listitem" or "web_document" or "web_landmark";
+
+    private static bool IsInteractiveSemanticRole(string semanticRole) =>
+        semanticRole is
+            "web_edit" or
+            "web_button" or
+            "web_togglebutton" or
+            "web_checkbox" or
+            "web_radio" or
+            "web_combobox" or
+            "web_tab" or
+            "web_menuitem" or
+            "web_progressbar";
+
+    private static int FindClosestSnapshotIndex(IReadOnlyList<BufferLine> items, AutomationElement element)
+    {
+        string structuralSummary = BuildStructuralSummary(element);
+        if (IsUsableSummary(structuralSummary))
+        {
+            int structuralIndex = FindItemIndex(items, item => AreSimilarForSpeech(item.ParentSummary, structuralSummary));
+            if (structuralIndex >= 0)
+            {
+                return structuralIndex;
+            }
+        }
+
+        AutomationElement? ancestorMatch = FocusSnapshotReader.FindAncestor(
+            element,
+            current =>
+            {
+                string runtimeId = SafeRuntimeId(current);
+                return !string.IsNullOrWhiteSpace(runtimeId) &&
+                       items.Any(item => string.Equals(item.RuntimeId, runtimeId, StringComparison.Ordinal));
+            });
+
+        if (ancestorMatch is not null)
+        {
+            string ancestorRuntimeId = SafeRuntimeId(ancestorMatch);
+            int ancestorIndex = FindItemIndex(items, item => string.Equals(item.RuntimeId, ancestorRuntimeId, StringComparison.Ordinal));
+            if (ancestorIndex >= 0)
+            {
+                return ancestorIndex;
+            }
+        }
+
+        string name = FocusSnapshotReader.ResolveName(element);
+        if (IsUsableSummary(name))
+        {
+            return FindItemIndex(items, item => AreSimilarForSpeech(item.Summary, name) || AreSimilarForSpeech(item.ParentSummary, name));
+        }
+
+        return -1;
+    }
+
+    private static int FindItemIndex(IReadOnlyList<BufferLine> items, Func<BufferLine, bool> predicate)
+    {
+        for (int index = 0; index < items.Count; index++)
+        {
+            if (predicate(items[index]))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
     private static string SafeRuntimeId(AutomationElement element)
     {
         try
@@ -1060,10 +1149,11 @@ public static class BrowserVirtualBuffer
     }
 
     private sealed record BufferSnapshot(string PageTitle, List<BufferLine> Items);
-    private sealed record BufferItem(string RuntimeId, AutomationElement Element, string Summary, List<string> ReadingLines);
+    private sealed record BufferItem(string RuntimeId, AutomationElement Element, string SemanticRole, string Summary, List<string> ReadingLines);
     private sealed record BufferLine(
         string RuntimeId,
         AutomationElement Element,
+        string SemanticRole,
         string Summary,
         string ParentSummary,
         int LineIndexWithinElement);

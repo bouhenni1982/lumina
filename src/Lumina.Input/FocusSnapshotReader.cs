@@ -982,9 +982,18 @@ public static class FocusSnapshotReader
 
     internal static string TryReadValue(AutomationElement element)
     {
-        if (element.TryGetCurrentPattern(ValuePattern.Pattern, out object? pattern))
+        try
         {
-            return ((ValuePattern)pattern).Current.Value ?? string.Empty;
+            if (element.TryGetCurrentPattern(ValuePattern.Pattern, out object? pattern))
+            {
+                return ((ValuePattern)pattern).Current.Value ?? string.Empty;
+            }
+        }
+        catch (ElementNotAvailableException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
         }
 
         return string.Empty;
@@ -1103,6 +1112,10 @@ public static class FocusSnapshotReader
         {
             return "عنصر غير متاح";
         }
+        catch (InvalidOperationException)
+        {
+            return "عنصر غير متاح";
+        }
     }
 
     internal static string ResolveRole(AutomationElement element)
@@ -1113,6 +1126,10 @@ public static class FocusSnapshotReader
                 ?? "control";
         }
         catch (ElementNotAvailableException)
+        {
+            return "unavailable";
+        }
+        catch (InvalidOperationException)
         {
             return "unavailable";
         }

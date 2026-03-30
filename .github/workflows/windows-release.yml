@@ -33,13 +33,62 @@ jobs:
       - name: Publish Windows host
         run: dotnet publish .\src\Lumina.Host\Lumina.Host.csproj --configuration Release --runtime win-x64 --self-contained true --output .\artifacts\Lumina.Host
 
-      - name: Create release ZIP
+      - name: Prepare delta package
         shell: pwsh
-        run: Compress-Archive -Path .\artifacts\Lumina.Host\* -DestinationPath .\artifacts\lumina-windows-${{ github.event.inputs.tag_name }}.zip -Force
+        run: |
+          $publishDir = Resolve-Path '.\artifacts\Lumina.Host'
+          $deltaDir = Join-Path $PWD 'artifacts\Lumina.Host.Delta'
+          if (Test-Path $deltaDir) {
+            Remove-Item -LiteralPath $deltaDir -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Path $deltaDir | Out-Null
+
+          $includePatterns = @(
+            'Lumina.Host.exe',
+            'Lumina.Host.dll',
+            'Lumina.Host.pdb',
+            'Lumina.Host.deps.json',
+            'Lumina.Host.runtimeconfig.json',
+            'Lumina.*.dll',
+            'Lumina.*.pdb',
+            'NLua.dll',
+            'KeraLua.dll',
+            'Microsoft.Extensions.*.dll',
+            'System.Speech.dll'
+          )
+
+          foreach ($pattern in $includePatterns) {
+            $matches = Get-ChildItem -Path $publishDir -Filter $pattern -Recurse -File -ErrorAction SilentlyContinue
+            foreach ($match in $matches) {
+              $relativePath = $match.FullName.Substring($publishDir.Path.Length).TrimStart('\')
+              $destinationPath = Join-Path $deltaDir $relativePath
+              $destinationDirectory = Split-Path -Parent $destinationPath
+              if (-not (Test-Path $destinationDirectory)) {
+                New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
+              }
+
+              Copy-Item -LiteralPath $match.FullName -Destination $destinationPath -Force
+            }
+          }
+
+          foreach ($directoryName in @('scripts', 'config')) {
+            $sourceDirectory = Join-Path $publishDir $directoryName
+            if (-not (Test-Path $sourceDirectory)) {
+              continue
+            }
+
+            $destinationDirectory = Join-Path $deltaDir $directoryName
+            Copy-Item -LiteralPath $sourceDirectory -Destination $destinationDirectory -Recurse -Force
+          }
+
+      - name: Create release delta ZIP
+        shell: pwsh
+        run: Compress-Archive -Path .\artifacts\Lumina.Host.Delta\* -DestinationPath .\artifacts\lumina-windows-delta-${{ github.event.inputs.tag_name }}.zip -Force
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag_name }}
           name: Lumina ${{ github.event.inputs.tag_name }}
-          files: .\artifacts\lumina-windows-${{ github.event.inputs.tag_name }}.zip
+          files: .\artifacts\lumina-windows-delta-${{ github.event.inputs.tag_name }}.zip

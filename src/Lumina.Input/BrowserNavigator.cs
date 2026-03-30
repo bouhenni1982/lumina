@@ -389,7 +389,7 @@ public static class BrowserNavigator
             return "link";
         }
 
-        string role = FocusSnapshotReader.ResolveWebSemanticRole(current);
+        string role = SafeResolveSemanticRole(current);
         return role switch
         {
             "web_heading" => "heading",
@@ -433,13 +433,13 @@ public static class BrowserNavigator
 
     private static string MoveToNextSemanticRole(string semanticRole, string missingMessage, string? boundaryMessage = null)
         => MoveToNextMatchingElement(
-            element => FocusSnapshotReader.ResolveWebSemanticRole(element) == semanticRole,
+            element => SafeResolveSemanticRole(element) == semanticRole,
             missingMessage,
             boundaryMessage);
 
     private static string MoveToPreviousSemanticRole(string semanticRole, string missingMessage, string? boundaryMessage = null)
         => MoveToPreviousMatchingElement(
-            element => FocusSnapshotReader.ResolveWebSemanticRole(element) == semanticRole,
+            element => SafeResolveSemanticRole(element) == semanticRole,
             missingMessage,
             boundaryMessage);
 
@@ -469,7 +469,7 @@ public static class BrowserNavigator
         }
 
         int currentIndex = elements.FindIndex(element => SameElement(element, current));
-        List<AutomationElement> matchingElements = elements.Where(matcher).ToList();
+        List<AutomationElement> matchingElements = FindMatchingElements(elements, matcher);
 
         if (matchingElements.Count == 0)
         {
@@ -477,7 +477,7 @@ public static class BrowserNavigator
         }
 
         IEnumerable<AutomationElement> orderedCandidates = EnumerateAfterCurrent(elements, currentIndex)
-            .Where(matcher);
+            .Where(element => MatchesElementSafely(element, matcher));
 
         foreach (AutomationElement candidate in orderedCandidates)
         {
@@ -487,7 +487,7 @@ public static class BrowserNavigator
             }
         }
 
-        bool currentMatches = currentIndex >= 0 && matcher(elements[currentIndex]);
+        bool currentMatches = currentIndex >= 0 && MatchesElementSafely(elements[currentIndex], matcher);
         return currentMatches ? boundaryMessage ?? missingMessage : missingMessage;
     }
 
@@ -517,7 +517,7 @@ public static class BrowserNavigator
         }
 
         int currentIndex = elements.FindIndex(element => SameElement(element, current));
-        List<AutomationElement> matchingElements = elements.Where(matcher).ToList();
+        List<AutomationElement> matchingElements = FindMatchingElements(elements, matcher);
 
         if (matchingElements.Count == 0)
         {
@@ -525,7 +525,7 @@ public static class BrowserNavigator
         }
 
         IEnumerable<AutomationElement> orderedCandidates = EnumerateBeforeCurrent(elements, currentIndex)
-            .Where(matcher);
+            .Where(element => MatchesElementSafely(element, matcher));
 
         foreach (AutomationElement candidate in orderedCandidates)
         {
@@ -535,7 +535,7 @@ public static class BrowserNavigator
             }
         }
 
-        bool currentMatches = currentIndex >= 0 && matcher(elements[currentIndex]);
+        bool currentMatches = currentIndex >= 0 && MatchesElementSafely(elements[currentIndex], matcher);
         return currentMatches ? boundaryMessage ?? missingMessage : missingMessage;
     }
 
@@ -570,7 +570,7 @@ public static class BrowserNavigator
 
         foreach (AutomationElement candidate in orderedCandidates)
         {
-            string role = FocusSnapshotReader.ResolveWebSemanticRole(candidate);
+            string role = SafeResolveSemanticRole(candidate);
             if (!IsFormFieldRole(role))
             {
                 continue;
@@ -920,7 +920,7 @@ public static class BrowserNavigator
                 return false;
             }
 
-            string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+            string semanticRole = SafeResolveSemanticRole(element);
             if (semanticRole == "web_control")
             {
                 return false;
@@ -945,7 +945,7 @@ public static class BrowserNavigator
 
     private static bool MatchesElementsListType(AutomationElement element, string itemType)
     {
-        string role = FocusSnapshotReader.ResolveWebSemanticRole(element);
+        string role = SafeResolveSemanticRole(element);
         return itemType switch
         {
             "link" => role == "web_link",
@@ -1116,11 +1116,11 @@ public static class BrowserNavigator
     }
 
     private static bool IsVisitedLink(AutomationElement element) =>
-        FocusSnapshotReader.ResolveWebSemanticRole(element) == "web_link" &&
+        SafeResolveSemanticRole(element) == "web_link" &&
         FocusSnapshotReader.HasBrowserState(element, "تمت زيارته");
 
     private static bool IsUnvisitedLink(AutomationElement element) =>
-        FocusSnapshotReader.ResolveWebSemanticRole(element) == "web_link" &&
+        SafeResolveSemanticRole(element) == "web_link" &&
         !FocusSnapshotReader.HasBrowserState(element, "تمت زيارته");
 
     private static bool IsTextParagraphCandidate(AutomationElement element)
@@ -1130,7 +1130,7 @@ public static class BrowserNavigator
             return false;
         }
 
-        string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+        string semanticRole = SafeResolveSemanticRole(element);
         if (semanticRole is "web_link" or "web_button" or "web_togglebutton" or "web_checkbox" or "web_radio" or "web_combobox" or "web_menuitem" or "web_tab" or "web_separator" or "web_progressbar")
         {
             return false;
@@ -1176,7 +1176,7 @@ public static class BrowserNavigator
                 return false;
             }
 
-            string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+            string semanticRole = SafeResolveSemanticRole(element);
             if (semanticRole is "web_control" or "web_document")
             {
                 return false;
@@ -1211,7 +1211,7 @@ public static class BrowserNavigator
             return false;
         }
 
-        if (FocusSnapshotReader.ResolveWebSemanticRole(element) == "web_link")
+        if (SafeResolveSemanticRole(element) == "web_link")
         {
             return false;
         }
@@ -1254,12 +1254,12 @@ public static class BrowserNavigator
             .Trim();
 
     private static bool CurrentElementMatchesFormField(IReadOnlyList<AutomationElement> elements, int currentIndex) =>
-        currentIndex >= 0 && IsFormFieldRole(FocusSnapshotReader.ResolveWebSemanticRole(elements[currentIndex]));
+        currentIndex >= 0 && IsFormFieldRole(SafeResolveSemanticRole(elements[currentIndex]));
 
     private static AutomationElement? ResolveContainerForElement(AutomationElement element) =>
         FocusSnapshotReader.FindAncestor(
             element,
-            current => IsContainerRole(FocusSnapshotReader.ResolveWebSemanticRole(current)));
+            current => IsContainerRole(SafeResolveSemanticRole(current)));
 
     private static bool TryInvoke(AutomationElement element)
     {
@@ -1329,7 +1329,7 @@ public static class BrowserNavigator
     private static AutomationElement? FindAncestorBySemanticRole(AutomationElement element, string semanticRole) =>
         FocusSnapshotReader.FindAncestor(
             element,
-            current => FocusSnapshotReader.ResolveWebSemanticRole(current) == semanticRole);
+            current => SafeResolveSemanticRole(current) == semanticRole);
 
     private static bool TryDescribeCurrentCell(AutomationElement current, out string? text)
     {
@@ -1555,22 +1555,33 @@ public static class BrowserNavigator
 
     private static bool SameElement(AutomationElement first, AutomationElement second)
     {
-        int[]? left = first.GetRuntimeId();
-        int[]? right = second.GetRuntimeId();
-        if (left is null || right is null || left.Length != right.Length)
+        try
         {
-            return false;
-        }
-
-        for (int index = 0; index < left.Length; index++)
-        {
-            if (left[index] != right[index])
+            int[]? left = first.GetRuntimeId();
+            int[]? right = second.GetRuntimeId();
+            if (left is null || right is null || left.Length != right.Length)
             {
                 return false;
             }
-        }
 
-        return true;
+            for (int index = 0; index < left.Length; index++)
+            {
+                if (left[index] != right[index])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        catch (ElementNotAvailableException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     private static int FindClosestElementIndex(IReadOnlyList<AutomationElement> elements, AutomationElement current)
@@ -1607,5 +1618,44 @@ public static class BrowserNavigator
         }
 
         return -1;
+    }
+
+    private static List<AutomationElement> FindMatchingElements(
+        IEnumerable<AutomationElement> elements,
+        Func<AutomationElement, bool> matcher) =>
+        elements.Where(element => MatchesElementSafely(element, matcher)).ToList();
+
+    private static bool MatchesElementSafely(
+        AutomationElement element,
+        Func<AutomationElement, bool> matcher)
+    {
+        try
+        {
+            return matcher(element);
+        }
+        catch (ElementNotAvailableException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private static string SafeResolveSemanticRole(AutomationElement element)
+    {
+        try
+        {
+            return FocusSnapshotReader.ResolveWebSemanticRole(element);
+        }
+        catch (ElementNotAvailableException)
+        {
+            return "web_control";
+        }
+        catch (InvalidOperationException)
+        {
+            return "web_control";
+        }
     }
 }

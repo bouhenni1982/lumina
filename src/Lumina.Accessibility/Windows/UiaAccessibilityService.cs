@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Windows.Automation;
 using Lumina.Core.Abstractions;
 using Lumina.Core.Models;
+using Lumina.Core.Services;
 
 namespace Lumina.Accessibility.Windows;
 
@@ -25,21 +27,29 @@ public sealed class UiaAccessibilityService : IAccessibilityService
 
     public void Start()
     {
-        Automation.AddAutomationFocusChangedEventHandler(_focusChangedHandler);
-        Automation.AddAutomationEventHandler(
-            AutomationElementIdentifiers.LiveRegionChangedEvent,
-            AutomationElement.RootElement,
-            TreeScope.Subtree,
-            _liveRegionChangedHandler);
-        Automation.AddAutomationPropertyChangedEventHandler(
-            AutomationElement.RootElement,
-            TreeScope.Subtree,
-            _propertyChangedHandler,
-            AutomationElement.NameProperty,
-            AutomationElement.HelpTextProperty,
-            AutomationElement.ItemStatusProperty,
-            ValuePattern.ValueProperty,
-            AutomationElementIdentifiers.LiveSettingProperty);
+        TryRegisterHandler(
+            "AutomationFocusChanged",
+            () => Automation.AddAutomationFocusChangedEventHandler(_focusChangedHandler));
+
+        TryRegisterHandler(
+            "LiveRegionChanged",
+            () => Automation.AddAutomationEventHandler(
+                AutomationElementIdentifiers.LiveRegionChangedEvent,
+                AutomationElement.RootElement,
+                TreeScope.Subtree,
+                _liveRegionChangedHandler));
+
+        TryRegisterHandler(
+            "PropertyChanged",
+            () => Automation.AddAutomationPropertyChangedEventHandler(
+                AutomationElement.RootElement,
+                TreeScope.Subtree,
+                _propertyChangedHandler,
+                AutomationElement.NameProperty,
+                AutomationElement.HelpTextProperty,
+                AutomationElement.ItemStatusProperty,
+                ValuePattern.ValueProperty,
+                AutomationElementIdentifiers.LiveSettingProperty));
     }
 
     private void OnFocusChanged(object src, AutomationFocusChangedEventArgs args)
@@ -120,14 +130,27 @@ public sealed class UiaAccessibilityService : IAccessibilityService
 
     private void RaiseScreenEvent(AutomationElement element, string eventType, bool userInitiated, int priority)
     {
-        AccessibleNode node = BuildAccessibleNode(element);
-        EventRaised?.Invoke(
-            this,
-            new ScreenEvent(
-                EventType: eventType,
-                Node: node,
-                UserInitiated: userInitiated,
-                Priority: priority));
+        try
+        {
+            AccessibleNode node = BuildAccessibleNode(element);
+            EventRaised?.Invoke(
+                this,
+                new ScreenEvent(
+                    EventType: eventType,
+                    Node: node,
+                    UserInitiated: userInitiated,
+                    Priority: priority));
+        }
+        catch (ElementNotAvailableException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        catch (Exception exception)
+        {
+            ErrorLogger.LogWarning(nameof(UiaAccessibilityService), $"تم تجاهل حدث {eventType} بسبب خطأ أثناء بناء العقدة: {exception.Message}");
+        }
     }
 
     private AccessibleNode BuildAccessibleNode(AutomationElement element)
@@ -571,6 +594,26 @@ public sealed class UiaAccessibilityService : IAccessibilityService
         catch (InvalidOperationException)
         {
             return false;
+        }
+    }
+
+    private static void TryRegisterHandler(string handlerName, Action register)
+    {
+        try
+        {
+            register();
+        }
+        catch (COMException exception)
+        {
+            ErrorLogger.LogWarning(nameof(UiaAccessibilityService), $"تعذر تسجيل معالج {handlerName} في UIA: {exception.Message}");
+        }
+        catch (ElementNotAvailableException exception)
+        {
+            ErrorLogger.LogWarning(nameof(UiaAccessibilityService), $"تعذر تسجيل معالج {handlerName} لأن الجذر غير متاح: {exception.Message}");
+        }
+        catch (InvalidOperationException exception)
+        {
+            ErrorLogger.LogWarning(nameof(UiaAccessibilityService), $"تعذر تسجيل معالج {handlerName}: {exception.Message}");
         }
     }
 }
