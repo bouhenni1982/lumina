@@ -862,6 +862,12 @@ public static class BrowserNavigator
             return false;
         }
 
+        string role = FocusSnapshotReader.ResolveRole(element);
+        if (role == "document")
+        {
+            return false;
+        }
+
         string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
         if (semanticRole is "web_control")
         {
@@ -904,6 +910,12 @@ public static class BrowserNavigator
         try
         {
             if (!IsPageNavigationCandidate(element))
+            {
+                return false;
+            }
+
+            string role = FocusSnapshotReader.ResolveRole(element);
+            if (role == "document")
             {
                 return false;
             }
@@ -1141,7 +1153,7 @@ public static class BrowserNavigator
 
         string role = FocusSnapshotReader.ResolveRole(element);
         return semanticRole is "web_article" or "web_grouping" or "web_blockquote" ||
-               role is "text" or "document" or "listitem" or "group";
+               role is "text" or "listitem" or "group";
     }
 
     private static bool IsPageNavigationCandidate(AutomationElement element)
@@ -1154,6 +1166,12 @@ public static class BrowserNavigator
             }
 
             if (element.Current.IsOffscreen)
+            {
+                return false;
+            }
+
+            string role = FocusSnapshotReader.ResolveRole(element);
+            if (role == "document")
             {
                 return false;
             }
