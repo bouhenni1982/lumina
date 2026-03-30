@@ -578,6 +578,10 @@ public sealed class KeyboardCommandManager : IDisposable
         }
 
         SyncBrowserModeToFocusedContext();
+        if (browserKeyCapturedAt != 0)
+        {
+            LogBrowserContextSnapshot(vkCode, browserKeyCapturedAt, "بعد مزامنة سياق المتصفح");
+        }
 
         if (ShouldLeaveAutoFocusedEdit(vkCode, controlDown, altDown, winDown))
         {
@@ -646,6 +650,11 @@ public sealed class KeyboardCommandManager : IDisposable
             !_textReviewMode &&
             IsBrowserTableNavigationContext(vkCode, controlDown, altDown, altGrDown))
         {
+            if (browserKeyCapturedAt != 0)
+            {
+                LogBrowserContextSnapshot(vkCode, browserKeyCapturedAt, "تم التعرف على سياق تنقل الجدول.");
+            }
+
             if (TryHandleBrowserTableNavigation(vkCode))
             {
                 return (IntPtr)1;
@@ -659,6 +668,11 @@ public sealed class KeyboardCommandManager : IDisposable
             IsDirectionalReadingKey(vkCode))
         {
             bool canArrowRead = IsBrowserArrowReadingContext(vkCode);
+            if (browserKeyCapturedAt != 0)
+            {
+                LogBrowserContextSnapshot(vkCode, browserKeyCapturedAt, $"فحص قراءة الأسهم: canArrowRead={canArrowRead}");
+            }
+
             if (canArrowRead)
             {
                 if (TryHandleBrowserArrowReading(vkCode, controlDown, browserKeyCapturedAt))
@@ -696,6 +710,20 @@ public sealed class KeyboardCommandManager : IDisposable
             IsBrowserContext() &&
             vkCode == VkTab)
         {
+            if (browserKeyCapturedAt != 0)
+            {
+                bool synced = BrowserVirtualBuffer.IsSyncedToFocusedElement();
+                LogBrowserContextSnapshot(vkCode, browserKeyCapturedAt, $"فحص Tab في وضع التصفح: syncedToFocus={synced}");
+                if (synced)
+                {
+                    LogBrowserCommandDecision(vkCode, "execute", "Tab مع مزامنة لاحقة للتركيز.", browserKeyCapturedAt);
+                }
+                else
+                {
+                    LogBrowserCommandDecision(vkCode, "execute", "Tab مع تنقل تفاعلي من موضع المؤشر.", browserKeyCapturedAt);
+                }
+            }
+
             if (BrowserVirtualBuffer.IsSyncedToFocusedElement())
             {
                 QueueBrowserFocusSyncAfterTab();
@@ -719,6 +747,11 @@ public sealed class KeyboardCommandManager : IDisposable
             IsBrowserContext() &&
             vkCode == VkTab)
         {
+            if (browserKeyCapturedAt != 0)
+            {
+                LogBrowserCommandDecision(vkCode, "execute", "Tab في وضع التركيز مع مزامنة لاحقة للتركيز.", browserKeyCapturedAt);
+            }
+
             QueueBrowserFocusSyncAfterTab();
             return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
         }
@@ -731,6 +764,11 @@ public sealed class KeyboardCommandManager : IDisposable
             IsPotentialBrowserNavigationKey(vkCode))
         {
             bool canNavigate = IsBrowserNavigationContext();
+            if (browserKeyCapturedAt != 0)
+            {
+                LogBrowserContextSnapshot(vkCode, browserKeyCapturedAt, $"فحص التنقل بالحروف: canNavigate={canNavigate}");
+            }
+
             if (canNavigate)
             {
                 if (TryHandleBrowserNavigation(vkCode, shiftDown, browserKeyCapturedAt))
@@ -1659,6 +1697,20 @@ public sealed class KeyboardCommandManager : IDisposable
         ErrorLogger.LogInfo(
             nameof(KeyboardCommandManager),
             $"BrowserCommand captured: key={FormatVirtualKey(vkCode)}, captureTs={capturedAt}, shift={shiftDown}, ctrl={controlDown}, alt={altDown}, win={winDown}, altGr={altGrDown}, browseMode={_browserBrowseMode}, singleLetter={_browserSingleLetterNavigationEnabled}, textReview={_textReviewMode}, process={process}, role={role}, semanticRole={semanticRole}, name={name}.");
+    }
+
+    private void LogBrowserContextSnapshot(uint vkCode, long capturedAt, string detail)
+    {
+        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+        bool browserContext = focused is not null && FocusSnapshotReader.IsBrowserContext(focused);
+        string semanticRole = focused is null ? "none" : FocusSnapshotReader.ResolveWebSemanticRole(focused);
+        string role = focused is null ? "none" : FocusSnapshotReader.ResolveRole(focused);
+        string name = focused is null ? "none" : FocusSnapshotReader.ResolveName(focused);
+        string process = focused is null ? "none" : FocusSnapshotReader.ResolveProcessName(focused);
+
+        ErrorLogger.LogInfo(
+            nameof(KeyboardCommandManager),
+            $"BrowserCommand state: key={FormatVirtualKey(vkCode)}, latencyMs={ElapsedMilliseconds(capturedAt):0.0}, browserContext={browserContext}, browseMode={_browserBrowseMode}, manualFocus={_browserManualFocusMode}, autoFocusEdit={_browserAutoFocusOnEdit}, editDirty={_browserEditDirty}, singleLetter={_browserSingleLetterNavigationEnabled}, process={process}, role={role}, semanticRole={semanticRole}, name={name}. {detail}");
     }
 
     private void LogBrowserCommandCompleted(uint vkCode, string detail, long capturedAt, double queueWaitMs)
