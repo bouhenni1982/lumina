@@ -5,9 +5,13 @@ using Lumina.Input;
 using Lumina.Output.Inspection;
 using Lumina.Scripting.Rules;
 using Lumina.Speech;
+using System.Diagnostics;
+using System.Reflection;
 
 try
 {
+    string diagnosticBuildInfo = ResolveDiagnosticBuildInfo();
+
     AppDomain.CurrentDomain.UnhandledException += (_, args) =>
     {
         if (args.ExceptionObject is Exception exception)
@@ -31,6 +35,7 @@ try
 
     Console.OutputEncoding = System.Text.Encoding.UTF8;
     Console.WriteLine("Lumina prototype started.");
+    Console.WriteLine(diagnosticBuildInfo);
     Console.WriteLine("يتابع تغيّر التركيز focus في Windows وينطق العنصر الحالي.");
     Console.WriteLine("يسجل Inspector الأحداث في inspector/focus-events.jsonl.");
     Console.WriteLine($"يسجل الأخطاء في {ErrorLogger.GetLogDirectory()}.");
@@ -79,7 +84,7 @@ try
     Console.WriteLine("قد ينتقل التطبيق تلقائيا إلى وضع التركيز عند الوصول إلى عناصر تفاعلية مثل حقول الإدخال ومربعات الخيارات وعناصر القوائم وعلامات التبويب، وكذلك بعض المحررات الغنية داخل صفحات الويب.");
     Console.WriteLine("داخل الجداول: Shift+Insert+T لقراءة سياق الجدول الحالي، وAltGr مع الأسهم للتنقل بين الخلايا.");
     Console.WriteLine("اضغط Ctrl+C للإيقاف.");
-    ErrorLogger.LogInfo("Program.Main", $"بدأ Lumina. {ErrorLogger.GetStatusSummary()}");
+    ErrorLogger.LogInfo("Program.Main", $"بدأ Lumina. {diagnosticBuildInfo}. {ErrorLogger.GetStatusSummary()}");
 
     var speechService = new SapiSpeechService();
     var inspectorSink = new CompositeInspectorSink(
@@ -669,4 +674,41 @@ catch (Exception exception)
     Console.Error.WriteLine("Lumina failed to start.");
     Console.Error.WriteLine(exception);
     Environment.ExitCode = 1;
+}
+
+static string ResolveDiagnosticBuildInfo()
+{
+    Assembly assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+    AssemblyName assemblyName = assembly.GetName();
+    string assemblyVersion = assemblyName.Version?.ToString() ?? "unknown";
+    string informationalVersion = assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+        .InformationalVersion?
+        .Trim() ?? string.Empty;
+
+    string fileVersion = string.Empty;
+    if (!string.IsNullOrWhiteSpace(assembly.Location))
+    {
+        try
+        {
+            FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(assembly.Location);
+            fileVersion = versionInfo.FileVersion?.Trim() ?? string.Empty;
+        }
+        catch
+        {
+        }
+    }
+
+    var parts = new List<string> { $"إصدار التجميع {assemblyVersion}" };
+    if (!string.IsNullOrWhiteSpace(fileVersion))
+    {
+        parts.Add($"إصدار الملف {fileVersion}");
+    }
+
+    if (!string.IsNullOrWhiteSpace(informationalVersion))
+    {
+        parts.Add($"إصدار المعلومات {informationalVersion}");
+    }
+
+    return $"بصمة التشخيص: {string.Join(" | ", parts)}";
 }
