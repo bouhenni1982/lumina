@@ -311,10 +311,28 @@ public static class BrowserVirtualBuffer
         return SyncToElement(focused);
     }
 
+    public static void Clear()
+    {
+        lock (Sync)
+        {
+            _snapshot = null;
+            _currentIndex = -1;
+            _textOffset = 0;
+            _pendingRefreshReason = PendingRefreshReason.None;
+            _lastBrowserFocusEventKey = string.Empty;
+            _lastBrowserFocusEventUtc = DateTimeOffset.MinValue;
+        }
+    }
+
     public static void NotifyAccessibilityEvent(ScreenEvent screenEvent)
     {
         if (screenEvent.Node.ContextKind != "browser")
         {
+            if (screenEvent.EventType == "focusChanged")
+            {
+                Clear();
+            }
+
             return;
         }
 

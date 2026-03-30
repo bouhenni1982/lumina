@@ -40,6 +40,11 @@ internal sealed class BrowserAccessibilityAdapter
 
     private static bool IsBrowserContext(AutomationElement element, string processName, string sourceApi)
     {
+        if (processName.Equals("lumina.host", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         string className = element.Current.ClassName ?? string.Empty;
         bool hasBrowserClass = className.Contains("Chrome", StringComparison.OrdinalIgnoreCase) ||
                                className.Contains("Mozilla", StringComparison.OrdinalIgnoreCase);

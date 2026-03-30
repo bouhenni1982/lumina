@@ -576,7 +576,7 @@ public sealed class KeyboardCommandManager : IDisposable
             _browserBrowseMode = true;
             _browserAutoFocusOnEdit = false;
             _browserEditDirty = false;
-            BrowserVirtualBuffer.SyncToFocusedElement();
+            SyncOrRefreshBrowserBufferToFocus();
 
             if (TryHandleBrowserArrowReading(vkCode, controlDown))
             {
@@ -609,7 +609,7 @@ public sealed class KeyboardCommandManager : IDisposable
                 _browserEditDirty = false;
                 if (_browserBrowseMode)
                 {
-                    BrowserVirtualBuffer.SyncToFocusedElement();
+                    SyncOrRefreshBrowserBufferToFocus();
                 }
 
                 string modeText = _browserBrowseMode
@@ -754,7 +754,7 @@ public sealed class KeyboardCommandManager : IDisposable
             _browserManualFocusMode = false;
             _browserAutoFocusOnEdit = false;
             _browserEditDirty = false;
-            BrowserVirtualBuffer.SyncToFocusedElement();
+            SyncOrRefreshBrowserBufferToFocus();
             ThreadPool.QueueUserWorkItem(_ => _speakBrowserMessage("تم الرجوع إلى وضع التصفح."));
             return (IntPtr)1;
         }
@@ -1032,13 +1032,7 @@ public sealed class KeyboardCommandManager : IDisposable
             {
             }
 
-            string syncText = BrowserVirtualBuffer.SyncToFocusedElement();
-            if (syncText.Contains("غير موجود داخل المخزن الظاهري", StringComparison.Ordinal) ||
-                syncText.Contains("غير جاهز", StringComparison.Ordinal))
-            {
-                BrowserVirtualBuffer.Refresh();
-                syncText = BrowserVirtualBuffer.SyncToFocusedElement();
-            }
+            string syncText = SyncOrRefreshBrowserBufferToFocus();
 
             TryAutoPassThroughForFocusedElement();
         });
@@ -1138,6 +1132,8 @@ public sealed class KeyboardCommandManager : IDisposable
         AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
         if (focused is null || !FocusSnapshotReader.IsBrowserContext(focused))
         {
+            BrowserVirtualBuffer.Clear();
+            _browserBrowseMode = true;
             _browserManualFocusMode = false;
             _browserAutoFocusOnEdit = false;
             _browserEditDirty = false;
@@ -1171,7 +1167,7 @@ public sealed class KeyboardCommandManager : IDisposable
         _browserBrowseMode = true;
         _browserAutoFocusOnEdit = false;
         _browserEditDirty = false;
-        BrowserVirtualBuffer.SyncToElement(focused);
+        SyncOrRefreshBrowserBufferToFocus();
     }
 
     private void EnterAutoFocusOnEditField()
@@ -1325,7 +1321,7 @@ public sealed class KeyboardCommandManager : IDisposable
 
         if (ShouldAutoPassThroughForElement(focused))
         {
-            BrowserVirtualBuffer.SyncToElement(focused);
+            SyncOrRefreshBrowserBufferToFocus();
             if (FocusSnapshotReader.ResolveWebSemanticRole(focused) == "web_edit")
             {
                 EnterAutoFocusOnEditField();
@@ -1594,6 +1590,19 @@ public sealed class KeyboardCommandManager : IDisposable
         ErrorLogger.LogInfo(
             nameof(KeyboardCommandManager),
             $"BrowserCommand {decision}: key={FormatVirtualKey(vkCode)}, browseMode={_browserBrowseMode}, singleLetter={_browserSingleLetterNavigationEnabled}, textReview={_textReviewMode}, process={process}, role={role}, semanticRole={semanticRole}, name={name}. {detail}");
+    }
+
+    private string SyncOrRefreshBrowserBufferToFocus()
+    {
+        string syncText = BrowserVirtualBuffer.SyncToFocusedElement();
+        if (syncText.Contains("غير موجود داخل المخزن الظاهري", StringComparison.Ordinal) ||
+            syncText.Contains("غير جاهز", StringComparison.Ordinal))
+        {
+            BrowserVirtualBuffer.Refresh();
+            syncText = BrowserVirtualBuffer.SyncToFocusedElement();
+        }
+
+        return syncText;
     }
 
     private static string FormatVirtualKey(uint vkCode) =>

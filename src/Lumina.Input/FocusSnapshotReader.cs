@@ -754,7 +754,7 @@ public static class FocusSnapshotReader
         try
         {
             string processName = ResolveProcessName(element);
-            if (processName is "explorer" or "shellexperiencehost" or "searchhost")
+            if (processName is "explorer" or "shellexperiencehost" or "searchhost" or "lumina.host")
             {
                 return false;
             }
