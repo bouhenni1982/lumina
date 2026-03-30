@@ -1166,20 +1166,20 @@ public sealed class KeyboardCommandManager : IDisposable
 
     private bool IsBrowserNavigationContext(BrowserFocusSnapshot snapshot)
     {
-        if (!_browserBrowseMode || !snapshot.BrowserContext || snapshot.Element is null)
+        if (!_browserBrowseMode || !snapshot.Client.BrowserContext || !snapshot.Client.Exists || snapshot.Client.Element is null)
         {
             return false;
         }
 
-        if (snapshot.SemanticRole != "web_edit")
+        if (snapshot.Client.SemanticRole != "web_edit")
         {
             return true;
         }
 
-        return IsDocumentRole(snapshot.Element);
+        return snapshot.Client.IsDocumentRole;
     }
 
-    private bool IsBrowserContext() => CaptureBrowserFocusSnapshot().BrowserContext;
+    private bool IsBrowserContext() => CaptureBrowserFocusSnapshot().Client.BrowserContext;
 
     private bool IsBrowserTableNavigationContext(
         uint vkCode,
@@ -1196,7 +1196,7 @@ public sealed class KeyboardCommandManager : IDisposable
             return false;
         }
 
-        if (snapshot.Element is null || !snapshot.BrowserContext)
+        if (!snapshot.Client.Exists || !snapshot.Client.BrowserContext)
         {
             return false;
         }
@@ -1207,7 +1207,7 @@ public sealed class KeyboardCommandManager : IDisposable
 
     private bool IsBrowserArrowReadingContext(uint vkCode, BrowserFocusSnapshot snapshot)
     {
-        if (!_browserBrowseMode || !IsDirectionalReadingKey(vkCode) || !snapshot.BrowserContext)
+        if (!_browserBrowseMode || !IsDirectionalReadingKey(vkCode) || !snapshot.Client.BrowserContext)
         {
             return false;
         }
@@ -1589,35 +1589,22 @@ public sealed class KeyboardCommandManager : IDisposable
 
     private bool IsBrowserEditFocused(BrowserFocusSnapshot snapshot)
     {
-        if (snapshot.Element is null || !snapshot.BrowserContext)
+        if (!snapshot.Client.Exists || !snapshot.Client.BrowserContext)
         {
             return false;
         }
 
-        if (snapshot.SemanticRole != "web_edit")
+        if (snapshot.Client.SemanticRole != "web_edit")
         {
             return false;
         }
 
-        return !IsDocumentRole(snapshot.Element);
+        return !snapshot.Client.IsDocumentRole;
     }
 
     private static BrowserFocusSnapshot CaptureBrowserFocusSnapshot()
     {
-        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
-        if (focused is null)
-        {
-            return new BrowserFocusSnapshot(null, false, "none", "none", "none", "none");
-        }
-
-        bool browserContext = FocusSnapshotReader.IsBrowserContext(focused);
-        string role = FocusSnapshotReader.ResolveRole(focused);
-        string semanticRole = browserContext
-            ? FocusSnapshotReader.ResolveWebSemanticRole(focused)
-            : "none";
-        string process = FocusSnapshotReader.ResolveProcessName(focused);
-        string name = FocusSnapshotReader.ResolveName(focused);
-        return new BrowserFocusSnapshot(focused, browserContext, role, semanticRole, process, name);
+        return new BrowserFocusSnapshot(UiaElementClient.ForFocusedElement());
     }
 
     private static bool IsDocumentRole(AutomationElement element) =>
@@ -1760,7 +1747,7 @@ public sealed class KeyboardCommandManager : IDisposable
 
         ErrorLogger.LogInfo(
             nameof(KeyboardCommandManager),
-            $"BrowserCommand state: key={FormatVirtualKey(vkCode)}, latencyMs={ElapsedMilliseconds(capturedAt):0.0}, browserContext={value.BrowserContext}, browseMode={_browserBrowseMode}, manualFocus={_browserManualFocusMode}, autoFocusEdit={_browserAutoFocusOnEdit}, editDirty={_browserEditDirty}, singleLetter={_browserSingleLetterNavigationEnabled}, process={value.Process}, role={value.Role}, semanticRole={value.SemanticRole}, name={value.Name}. {detail}");
+            $"BrowserCommand state: key={FormatVirtualKey(vkCode)}, latencyMs={ElapsedMilliseconds(capturedAt):0.0}, browserContext={value.Client.BrowserContext}, browseMode={_browserBrowseMode}, manualFocus={_browserManualFocusMode}, autoFocusEdit={_browserAutoFocusOnEdit}, editDirty={_browserEditDirty}, singleLetter={_browserSingleLetterNavigationEnabled}, process={value.Client.Process}, role={value.Client.Role}, semanticRole={value.Client.SemanticRole}, name={value.Client.Name}. {detail}");
     }
 
     private void LogBrowserCommandCompleted(uint vkCode, string detail, long capturedAt, double queueWaitMs)
@@ -1784,13 +1771,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private static double ElapsedMilliseconds(long startTimestamp) =>
         (Stopwatch.GetTimestamp() - startTimestamp) * 1000d / Stopwatch.Frequency;
 
-    private readonly record struct BrowserFocusSnapshot(
-        AutomationElement? Element,
-        bool BrowserContext,
-        string Role,
-        string SemanticRole,
-        string Process,
-        string Name);
+    private readonly record struct BrowserFocusSnapshot(UiaElementClient Client);
 
     private string SyncOrRefreshBrowserBufferToFocus()
     {
