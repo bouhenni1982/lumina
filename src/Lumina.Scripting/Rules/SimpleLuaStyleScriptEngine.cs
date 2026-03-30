@@ -87,6 +87,7 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
         }
 
         Lua lua = new();
+        TrySetUtf8Encoding(lua, processName);
         List<ScriptFileDiagnostic> loadedScripts = [];
         int loadOrder = 0;
 
@@ -304,6 +305,23 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
     private static void ExecuteScriptFile(Lua lua, string scriptPath)
     {
         _ = lua.DoFile(scriptPath);
+    }
+
+    private static void TrySetUtf8Encoding(Lua lua, string processName)
+    {
+        try
+        {
+            lua.State.Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+            ErrorLogger.LogVerbose(
+                nameof(SimpleLuaStyleScriptEngine),
+                $"تم ضبط ترميز حالة Lua على UTF-8 للتطبيق {processName}.");
+        }
+        catch (Exception exception)
+        {
+            ErrorLogger.LogWarning(
+                nameof(SimpleLuaStyleScriptEngine),
+                $"تعذر ضبط ترميز UTF-8 لحالة Lua للتطبيق {processName}. سيتم المتابعة بالقيم الافتراضية. السبب: {exception.GetType().Name}: {exception.Message}");
+        }
     }
 
     private static string DetectByteOrderMark(byte[] bytes)
