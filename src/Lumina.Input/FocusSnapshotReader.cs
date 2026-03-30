@@ -398,6 +398,7 @@ public static class FocusSnapshotReader
         {
             "web_link" => $"رابط ويب {name}",
             "web_heading" => $"عنوان صفحة {name}",
+            "web_edit" when ResolveRole(element) == "document" => $"محرر ويب {name}",
             "web_edit" => $"حقل إدخال ويب {name}",
             "web_document" => $"مستند ويب {name}",
             "web_button" => $"زر ويب {name}",
@@ -781,6 +782,11 @@ public static class FocusSnapshotReader
             return "web_heading";
         }
 
+        if (IsLikelyEditableBrowserDocumentElement(element, role, localizedRole, itemType, helpText))
+        {
+            return "web_edit";
+        }
+
         if (role == "document" || localizedRole.Contains("document"))
         {
             return "web_document";
@@ -972,6 +978,92 @@ public static class FocusSnapshotReader
         {
             return string.Empty;
         }
+    }
+
+    internal static bool IsEditableBrowserDocument(AutomationElement element)
+    {
+        if (!IsBrowserContext(element))
+        {
+            return false;
+        }
+
+        string role = ResolveRole(element);
+        string localizedRole = (element.Current.LocalizedControlType ?? string.Empty).ToLowerInvariant();
+        string itemType = (element.Current.ItemType ?? string.Empty).ToLowerInvariant();
+        string helpText = (element.Current.HelpText ?? string.Empty).ToLowerInvariant();
+        return IsLikelyEditableBrowserDocumentElement(element, role, localizedRole, itemType, helpText);
+    }
+
+    private static bool IsLikelyEditableBrowserDocumentElement(
+        AutomationElement element,
+        string role,
+        string localizedRole,
+        string itemType,
+        string helpText)
+    {
+        if (role != "document" && !localizedRole.Contains("document", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!element.Current.IsEnabled)
+        {
+            return false;
+        }
+
+        bool hasTextPattern = false;
+        try
+        {
+            hasTextPattern = element.TryGetCurrentPattern(TextPattern.Pattern, out _);
+        }
+        catch
+        {
+        }
+
+        if (!hasTextPattern)
+        {
+            return false;
+        }
+
+        try
+        {
+            if (element.TryGetCurrentPattern(ValuePattern.Pattern, out object? valuePatternObject) &&
+                !((ValuePattern)valuePatternObject).Current.IsReadOnly)
+            {
+                return true;
+            }
+        }
+        catch
+        {
+        }
+
+        string name = ResolveName(element).ToLowerInvariant();
+        string combined = $"{localizedRole} {itemType} {helpText} {name}";
+
+        string[] editableHints =
+        [
+            "editable",
+            "editor",
+            "rich text",
+            "content editable",
+            "composer",
+            "message",
+            "chat input",
+            "document editing",
+            "document content",
+            "تحرير",
+            "محرر",
+            "رسالة",
+            "كتابة",
+            "compose"
+        ];
+
+        if (editableHints.Any(hint => combined.Contains(hint, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return element.Current.IsKeyboardFocusable || element.Current.HasKeyboardFocus;
     }
 
     internal static string ResolveName(AutomationElement element) =>

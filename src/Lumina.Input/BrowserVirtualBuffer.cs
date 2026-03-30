@@ -1,14 +1,18 @@
 using System.Windows.Automation;
 using System.Windows.Automation.Text;
+using System.Globalization;
+using Lumina.Core.Models;
 
 namespace Lumina.Input;
 
 public static class BrowserVirtualBuffer
 {
     private static readonly object Sync = new();
+    private static readonly Timer DeferredRefreshTimer = new(OnDeferredRefreshTimerTick);
     private static BufferSnapshot? _snapshot;
     private static int _currentIndex = -1;
     private static int _textOffset;
+    private static PendingRefreshReason _pendingRefreshReason;
 
     public static string Refresh()
     {
@@ -26,12 +30,16 @@ public static class BrowserVirtualBuffer
         AutomationElement root = BrowserNavigator.ResolveNavigationRootForBuffer(focused);
         List<BufferItem> rawItems = BrowserNavigator
             .EnumerateBufferCandidates(root)
-            .Select(element => new BufferItem(
-                RuntimeId: SafeRuntimeId(element),
-                Element: element,
-                Summary: FocusSnapshotReader.BuildWebSummary(element),
-                ReadingLines: BuildReadingLines(element)))
-            .Where(item => !string.IsNullOrWhiteSpace(item.Summary) && item.ReadingLines.Count > 0)
+            .Select(element =>
+            {
+                List<string> readingLines = BuildReadingLines(element);
+                return new BufferItem(
+                    RuntimeId: SafeRuntimeId(element),
+                    Element: element,
+                    Summary: ResolveBufferSummary(element, readingLines),
+                    ReadingLines: readingLines);
+            })
+            .Where(item => item.ReadingLines.Count > 0)
             .ToList();
 
         List<BufferLine> items = ExpandToBufferLines(rawItems);
@@ -287,6 +295,63 @@ public static class BrowserVirtualBuffer
         return SyncToElement(focused);
     }
 
+    public static void NotifyAccessibilityEvent(ScreenEvent screenEvent)
+    {
+        if (screenEvent.Node.ContextKind != "browser")
+        {
+            return;
+        }
+
+        PendingRefreshReason reason = screenEvent.EventType switch
+        {
+            "focusChanged" => PendingRefreshReason.SyncToFocus,
+            "liveRegionChanged" => PendingRefreshReason.Refresh,
+            "liveTextChanged" => PendingRefreshReason.Refresh,
+            _ => PendingRefreshReason.None
+        };
+
+        if (reason == PendingRefreshReason.None)
+        {
+            return;
+        }
+
+        lock (Sync)
+        {
+            if (reason == PendingRefreshReason.Refresh || _pendingRefreshReason == PendingRefreshReason.None)
+            {
+                _pendingRefreshReason = reason;
+            }
+        }
+
+        int delayMs = reason == PendingRefreshReason.Refresh ? 160 : 70;
+        DeferredRefreshTimer.Change(delayMs, Timeout.Infinite);
+    }
+
+    public static bool IsSyncedToFocusedElement()
+    {
+        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+        if (focused is null)
+        {
+            return false;
+        }
+
+        lock (Sync)
+        {
+            if (_snapshot is null || _snapshot.Items.Count == 0 || _currentIndex < 0 || _currentIndex >= _snapshot.Items.Count)
+            {
+                return false;
+            }
+
+            string runtimeId = SafeRuntimeId(focused);
+            if (string.IsNullOrWhiteSpace(runtimeId))
+            {
+                return false;
+            }
+
+            return string.Equals(_snapshot.Items[_currentIndex].RuntimeId, runtimeId, StringComparison.Ordinal);
+        }
+    }
+
     internal static string SyncToElement(AutomationElement element)
     {
         if (element is null)
@@ -331,6 +396,57 @@ public static class BrowserVirtualBuffer
                !refreshMessage.Contains("لم يتم العثور", StringComparison.Ordinal);
     }
 
+    private static void OnDeferredRefreshTimerTick(object? state)
+    {
+        PendingRefreshReason reason;
+        lock (Sync)
+        {
+            reason = _pendingRefreshReason;
+            _pendingRefreshReason = PendingRefreshReason.None;
+        }
+
+        if (reason == PendingRefreshReason.None)
+        {
+            return;
+        }
+
+        try
+        {
+            if (reason == PendingRefreshReason.SyncToFocus)
+            {
+                string syncText = SyncToFocusedElement();
+                if (syncText.Contains("غير موجود داخل المخزن الظاهري", StringComparison.Ordinal) ||
+                    syncText.Contains("غير جاهز", StringComparison.Ordinal))
+                {
+                    Refresh();
+                    SyncToFocusedElement();
+                }
+
+                return;
+            }
+
+            bool hasSnapshot;
+            lock (Sync)
+            {
+                hasSnapshot = _snapshot is not null && _snapshot.Items.Count > 0;
+            }
+
+            if (!hasSnapshot)
+            {
+                return;
+            }
+
+            string refreshText = Refresh();
+            if (refreshText.Contains("تم تحديث المخزن الظاهري", StringComparison.Ordinal))
+            {
+                SyncToFocusedElement();
+            }
+        }
+        catch
+        {
+        }
+    }
+
     private static string GetCurrentSummaryText()
     {
         if (_snapshot is null || _snapshot.Items.Count == 0 || _currentIndex < 0)
@@ -344,11 +460,42 @@ public static class BrowserVirtualBuffer
     private static List<string> BuildReadingLines(AutomationElement element)
     {
         List<string> lines = [];
+        if (FocusSnapshotReader.IsEditableBrowserDocument(element))
+        {
+            AddReadingSegment(lines, BuildStructuralSummary(element));
+
+            string value = FocusSnapshotReader.TryReadValue(element);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                string normalizedValue = NormalizeReadingText(value);
+                if (!normalizedValue.Contains('\n', StringComparison.Ordinal) &&
+                    normalizedValue.Length <= 120)
+                {
+                    AddReadingSegment(lines, $"القيمة {normalizedValue}");
+                }
+            }
+
+            string? state = FocusSnapshotReader.ResolveStateSummary(element);
+            if (!string.IsNullOrWhiteSpace(state))
+            {
+                AddReadingSegment(lines, $"الحالة {state}");
+            }
+
+            return lines;
+        }
 
         bool addedRichText = AddReadableTextFromElement(lines, element);
         if (!addedRichText)
         {
             AddReadingSegment(lines, FocusSnapshotReader.BuildWebSummary(element));
+        }
+        else
+        {
+            string structuralSummary = BuildStructuralSummary(element);
+            if (ShouldIncludeStructuralSummary(lines, structuralSummary))
+            {
+                lines.Insert(0, structuralSummary);
+            }
         }
 
         string value = FocusSnapshotReader.TryReadValue(element);
@@ -376,6 +523,35 @@ public static class BrowserVirtualBuffer
         }
 
         return lines;
+    }
+
+    private static string ResolveBufferSummary(AutomationElement element, IReadOnlyList<string> readingLines)
+    {
+        string structuralSummary = BuildStructuralSummary(element);
+        if (IsUsableSummary(structuralSummary))
+        {
+            return structuralSummary;
+        }
+
+        string summary = FocusSnapshotReader.BuildWebSummary(element);
+        if (IsUsableSummary(summary))
+        {
+            return summary;
+        }
+
+        string name = FocusSnapshotReader.ResolveName(element);
+        if (IsUsableSummary(name))
+        {
+            return name;
+        }
+
+        string value = FocusSnapshotReader.TryReadValue(element);
+        if (IsUsableSummary(value))
+        {
+            return value;
+        }
+
+        return readingLines.FirstOrDefault(IsUsableSummary) ?? string.Empty;
     }
 
     private static bool AddReadableTextFromElement(List<string> lines, AutomationElement element)
@@ -428,6 +604,71 @@ public static class BrowserVirtualBuffer
         }
 
         return lines;
+    }
+
+    private static string BuildStructuralSummary(AutomationElement element)
+    {
+        string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+        string name = FocusSnapshotReader.ResolveName(element);
+        string? state = FocusSnapshotReader.ResolveStateSummary(element);
+
+        string summary = semanticRole switch
+        {
+            "web_link" => BuildRoleSummary("رابط ويب", name),
+            "web_heading" => BuildRoleSummary("عنوان صفحة", name),
+            "web_edit" => BuildRoleSummary("حقل إدخال ويب", name),
+            "web_button" => BuildRoleSummary("زر ويب", name),
+            "web_togglebutton" => BuildRoleSummary("زر تبديل ويب", name),
+            "web_checkbox" => BuildRoleSummary("خانة اختيار", name),
+            "web_radio" => BuildRoleSummary("زر اختيار ويب", name),
+            "web_combobox" => BuildRoleSummary("مربع خيارات ويب", name),
+            "web_graphic" => BuildRoleSummary("رسم ويب", name),
+            "web_frame" => BuildRoleSummary("إطار ويب", name),
+            "web_tab" => BuildRoleSummary("علامة تبويب ويب", name),
+            "web_menuitem" => BuildRoleSummary("عنصر قائمة ويب", name),
+            "web_table" => BuildRoleSummary("جدول", name),
+            "web_list" => BuildRoleSummary("قائمة ويب", name),
+            "web_listitem" => BuildRoleSummary("عنصر قائمة ويب", name),
+            "web_dialog" => BuildRoleSummary("حوار ويب", name),
+            "web_landmark" => BuildRoleSummary("معلم صفحة", name),
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            return string.Empty;
+        }
+
+        return string.IsNullOrWhiteSpace(state) ? summary : $"{summary}. {state}";
+    }
+
+    private static string BuildRoleSummary(string label, string name) =>
+        string.IsNullOrWhiteSpace(name) || name == "عنصر غير مسمى"
+            ? label
+            : $"{label} {name}";
+
+    private static bool ShouldIncludeStructuralSummary(IReadOnlyList<string> lines, string structuralSummary)
+    {
+        if (!IsUsableSummary(structuralSummary))
+        {
+            return false;
+        }
+
+        foreach (string line in lines)
+        {
+            if (!IsUsableSummary(line))
+            {
+                continue;
+            }
+
+            if (AreSimilarForSpeech(structuralSummary, line) ||
+                AreSimilarForSpeech(line, structuralSummary))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static void AddReadingSegment(List<string> segments, string? text)
@@ -527,10 +768,71 @@ public static class BrowserVirtualBuffer
         return value.Any(char.IsLetterOrDigit);
     }
 
+    private static bool IsUsableSummary(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        string value = text.Trim();
+        if (value == "عنصر غير مسمى")
+        {
+            return false;
+        }
+
+        return value.Any(char.IsLetterOrDigit);
+    }
+
+    private static bool AreSimilarForSpeech(string left, string right)
+    {
+        string normalizedLeft = NormalizeForSpeechComparison(left);
+        string normalizedRight = NormalizeForSpeechComparison(right);
+        if (string.IsNullOrWhiteSpace(normalizedLeft) || string.IsNullOrWhiteSpace(normalizedRight))
+        {
+            return false;
+        }
+
+        return string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase) ||
+               normalizedLeft.Contains(normalizedRight, StringComparison.OrdinalIgnoreCase) ||
+               normalizedRight.Contains(normalizedLeft, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeForSpeechComparison(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        return text
+            .Replace("رابط ويب", string.Empty, StringComparison.Ordinal)
+            .Replace("عنوان صفحة", string.Empty, StringComparison.Ordinal)
+            .Replace("حقل إدخال ويب", string.Empty, StringComparison.Ordinal)
+            .Replace("زر ويب", string.Empty, StringComparison.Ordinal)
+            .Replace("زر تبديل ويب", string.Empty, StringComparison.Ordinal)
+            .Replace("خانة اختيار", string.Empty, StringComparison.Ordinal)
+            .Replace("زر اختيار ويب", string.Empty, StringComparison.Ordinal)
+            .Replace("مربع خيارات ويب", string.Empty, StringComparison.Ordinal)
+            .Replace("رسم ويب", string.Empty, StringComparison.Ordinal)
+            .Replace("إطار ويب", string.Empty, StringComparison.Ordinal)
+            .Replace("علامة تبويب ويب", string.Empty, StringComparison.Ordinal)
+            .Replace("عنصر قائمة ويب", string.Empty, StringComparison.Ordinal)
+            .Replace("قائمة ويب", string.Empty, StringComparison.Ordinal)
+            .Replace("جدول", string.Empty, StringComparison.Ordinal)
+            .Replace("حوار ويب", string.Empty, StringComparison.Ordinal)
+            .Replace("معلم صفحة", string.Empty, StringComparison.Ordinal)
+            .Replace("الحالة", string.Empty, StringComparison.Ordinal)
+            .Replace("القيمة", string.Empty, StringComparison.Ordinal)
+            .Replace(".", " ", StringComparison.Ordinal)
+            .Replace("،", " ", StringComparison.Ordinal)
+            .Trim();
+    }
+
     private static int FindNextWordStart(string text, int offset)
     {
         int index = Math.Max(offset, 0);
-        while (index < text.Length && !char.IsLetterOrDigit(text[index]))
+        while (index < text.Length && !IsWordCharacter(text, index))
         {
             index++;
         }
@@ -541,7 +843,7 @@ public static class BrowserVirtualBuffer
     private static int FindPreviousWordStart(string text, int offset)
     {
         int index = Math.Min(offset - 1, text.Length - 1);
-        while (index >= 0 && !char.IsLetterOrDigit(text[index]))
+        while (index >= 0 && !IsWordCharacter(text, index))
         {
             index--;
         }
@@ -551,7 +853,7 @@ public static class BrowserVirtualBuffer
             return -1;
         }
 
-        while (index > 0 && char.IsLetterOrDigit(text[index - 1]))
+        while (index > 0 && IsWordCharacter(text, index - 1))
         {
             index--;
         }
@@ -562,7 +864,7 @@ public static class BrowserVirtualBuffer
     private static int FindWordEnd(string text, int start)
     {
         int index = start;
-        while (index < text.Length && char.IsLetterOrDigit(text[index]))
+        while (index < text.Length && IsWordCharacter(text, index))
         {
             index++;
         }
@@ -570,11 +872,60 @@ public static class BrowserVirtualBuffer
         return index;
     }
 
+    private static bool IsWordCharacter(string text, int index)
+    {
+        char value = text[index];
+        UnicodeCategory category = char.GetUnicodeCategory(value);
+        if (char.IsLetterOrDigit(value) ||
+            category is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark)
+        {
+            return true;
+        }
+
+        if (value is '\'' or '_' or '-')
+        {
+            bool hasWordCharBefore = index > 0 && IsLetterDigitOrMark(text[index - 1]);
+            bool hasWordCharAfter = index + 1 < text.Length && IsLetterDigitOrMark(text[index + 1]);
+            return hasWordCharBefore && hasWordCharAfter;
+        }
+
+        return false;
+    }
+
+    private static bool IsLetterDigitOrMark(char value)
+    {
+        UnicodeCategory category = char.GetUnicodeCategory(value);
+        return char.IsLetterOrDigit(value) ||
+               category is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark;
+    }
+
     private static string DescribeCharacter(char character) =>
         character switch
         {
             ' ' => "مسافة",
             '\t' => "جدولة",
+            '\n' => "سطر جديد",
+            '.' => "نقطة",
+            ',' => "فاصلة",
+            '،' => "فاصلة عربية",
+            ':' => "نقطتان",
+            ';' => "فاصلة منقوطة",
+            '؛' => "فاصلة منقوطة عربية",
+            '!' => "علامة تعجب",
+            '?' => "علامة استفهام",
+            '؟' => "علامة استفهام عربية",
+            '-' => "شرطة",
+            '_' => "شرطة سفلية",
+            '/' => "شرطة مائلة",
+            '\\' => "شرطة مائلة عكسية",
+            '(' => "قوس فتح",
+            ')' => "قوس إغلاق",
+            '[' => "قوس مربع فتح",
+            ']' => "قوس مربع إغلاق",
+            '{' => "قوس معقوف فتح",
+            '}' => "قوس معقوف إغلاق",
+            '"' => "علامة اقتباس مزدوجة",
+            '\'' => "علامة اقتباس مفردة",
             _ => character.ToString()
         };
 
@@ -601,13 +952,34 @@ public static class BrowserVirtualBuffer
             return parentSummary;
         }
 
-        if (string.Equals(parentSummary, lineSummary, StringComparison.OrdinalIgnoreCase) ||
-            parentSummary.Contains(lineSummary, StringComparison.OrdinalIgnoreCase))
+        if (AreSimilarForSpeech(parentSummary, lineSummary))
         {
-            return parentSummary;
+            return lineSummary;
+        }
+
+        if (ShouldSpeakLineBeforeParent(item, parentSummary, lineSummary))
+        {
+            return $"{lineSummary}. {parentSummary}";
         }
 
         return $"{parentSummary}. {lineSummary}";
+    }
+
+    private static bool ShouldSpeakLineBeforeParent(BufferLine item, string parentSummary, string lineSummary)
+    {
+        if (item.LineIndexWithinElement <= 0)
+        {
+            return false;
+        }
+
+        string normalizedParent = NormalizeForSpeechComparison(parentSummary);
+        string normalizedLine = NormalizeForSpeechComparison(lineSummary);
+        if (string.IsNullOrWhiteSpace(normalizedParent) || string.IsNullOrWhiteSpace(normalizedLine))
+        {
+            return false;
+        }
+
+        return normalizedParent.Length <= normalizedLine.Length / 2;
     }
 
     private static string SafeRuntimeId(AutomationElement element)
@@ -631,4 +1003,11 @@ public static class BrowserVirtualBuffer
         string Summary,
         string ParentSummary,
         int LineIndexWithinElement);
+
+    private enum PendingRefreshReason
+    {
+        None,
+        SyncToFocus,
+        Refresh
+    }
 }

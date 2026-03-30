@@ -74,9 +74,9 @@ try
     Console.WriteLine("الأنواع الإضافية مثل tabs وmenu items وtree items وarticles وfigures وgroupings وprogress bars أصبحت مدعومة في قائمة العناصر وطبقة التنقل الداخلية، وبعضها بلا حرف افتراضي مثل NVDA.");
     Console.WriteLine("الأرقام 1 إلى 9 للتنقل بين العناوين حسب المستوى، وShift+الرقم للرجوع.");
     Console.WriteLine("Insert+Space داخل المتصفح للتبديل بين وضع التصفح ووضع التركيز. وShift+Insert+Space لتبديل التنقل بالحروف المفردة. وEscape للرجوع إلى وضع التصفح.");
-    Console.WriteLine("داخل وضع التصفح: Enter أو Space لتفعيل العنصر الحالي.");
+    Console.WriteLine("داخل وضع التصفح: Enter يفعّل الروابط والأزرار ومعظم عناصر النماذج، وSpace مناسب خصوصا للأزرار وخانات الاختيار وأزرار الاختيار.");
     Console.WriteLine("داخل وضع التصفح: Tab وShift+Tab للتنقل بين العناصر التفاعلية من موضع المؤشر، و, وShift+, للتنقل داخل الحاوية الحالية.");
-    Console.WriteLine("قد ينتقل التطبيق تلقائيا إلى وضع التركيز عند الوصول إلى عناصر تفاعلية مثل حقول الإدخال ومربعات الخيارات وعناصر القوائم وعلامات التبويب.");
+    Console.WriteLine("قد ينتقل التطبيق تلقائيا إلى وضع التركيز عند الوصول إلى عناصر تفاعلية مثل حقول الإدخال ومربعات الخيارات وعناصر القوائم وعلامات التبويب، وكذلك بعض المحررات الغنية داخل صفحات الويب.");
     Console.WriteLine("داخل الجداول: Shift+Insert+T لقراءة سياق الجدول الحالي، وAltGr مع الأسهم للتنقل بين الخلايا.");
     Console.WriteLine("اضغط Ctrl+C للإيقاف.");
     ErrorLogger.LogInfo("Program.Main", $"بدأ Lumina. {ErrorLogger.GetStatusSummary()}");
@@ -85,8 +85,14 @@ try
     var inspectorSink = new CompositeInspectorSink(
         new JsonInspectorSink(),
         new LiveInspectorSink());
+    using var accessibilityService = new UiaAccessibilityService();
+    accessibilityService.EventRaised += (_, screenEvent) =>
+    {
+        BrowserVirtualBuffer.NotifyAccessibilityEvent(screenEvent);
+    };
+
     using var runtime = new LuminaRuntime(
-        new UiaAccessibilityService(),
+        accessibilityService,
         new SimpleLuaStyleScriptEngine(),
         speechService,
         inspectorSink);

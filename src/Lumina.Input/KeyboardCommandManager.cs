@@ -193,6 +193,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private bool _insertDown;
     private bool _textReviewMode;
     private bool _browserBrowseMode = true;
+    private bool _browserManualFocusMode;
     private bool _browserSingleLetterNavigationEnabled = true;
     private bool _browserAutoFocusOnEdit;
     private bool _browserEditDirty;
@@ -201,6 +202,42 @@ public sealed class KeyboardCommandManager : IDisposable
 
     private static readonly TimeSpan AdvancedDetailsRepeatWindow = TimeSpan.FromMilliseconds(900);
     private static readonly TimeSpan AutoFocusModeAnnouncementWindow = TimeSpan.FromMilliseconds(1200);
+    private static readonly HashSet<string> AlwaysPassThroughSemanticRoles = new(StringComparer.Ordinal)
+    {
+        "web_combobox",
+        "web_edit",
+        "web_radio",
+        "web_tab",
+        "web_menuitem",
+        "web_treeitem"
+    };
+    private static readonly HashSet<string> AlwaysPassThroughRoles = new(StringComparer.Ordinal)
+    {
+        "combobox",
+        "edit",
+        "list",
+        "listitem",
+        "slider",
+        "tab",
+        "menu",
+        "menubar",
+        "tree",
+        "treeitem",
+        "spinner",
+        "dataitem",
+        "headeritem"
+    };
+    private static readonly HashSet<string> PassThroughOnFocusSemanticRoles = new(StringComparer.Ordinal)
+    {
+        "web_radio",
+        "web_tab",
+        "web_menuitem",
+        "web_treeitem"
+    };
+    private static readonly HashSet<string> IgnoreEscapeToBrowseSemanticRoles = new(StringComparer.Ordinal)
+    {
+        "web_menuitem"
+    };
 
     public KeyboardCommandManager(
         Action speakCurrentFocus,
@@ -566,8 +603,14 @@ public sealed class KeyboardCommandManager : IDisposable
             if (vkCode == VkSpace && IsBrowserContext())
             {
                 _browserBrowseMode = !_browserBrowseMode;
+                _browserManualFocusMode = !_browserBrowseMode;
                 _browserAutoFocusOnEdit = false;
                 _browserEditDirty = false;
+                if (_browserBrowseMode)
+                {
+                    BrowserVirtualBuffer.SyncToFocusedElement();
+                }
+
                 string modeText = _browserBrowseMode
                     ? "تم تفعيل وضع التصفح."
                     : "تم تفعيل وضع التركيز.";
@@ -629,8 +672,10 @@ public sealed class KeyboardCommandManager : IDisposable
             IsBrowserContext() &&
             vkCode is VkReturn or VkSpace)
         {
-            ThreadPool.QueueUserWorkItem(_ => _activateCurrentBrowserElement());
-            return (IntPtr)1;
+            if (TryHandleBrowseModeActivationKey(vkCode))
+            {
+                return (IntPtr)1;
+            }
         }
 
         if (!_insertDown &&
@@ -642,12 +687,31 @@ public sealed class KeyboardCommandManager : IDisposable
             IsBrowserContext() &&
             vkCode == VkTab)
         {
+            if (BrowserVirtualBuffer.IsSyncedToFocusedElement())
+            {
+                QueueBrowserFocusSyncAfterTab();
+                return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+            }
+
             ThreadPool.QueueUserWorkItem(_ =>
             {
                 (shiftDown ? _moveToPreviousFocusableElement : _moveToNextFocusableElement)();
                 TryAutoPassThroughForFocusedElement();
             });
             return (IntPtr)1;
+        }
+
+        if (!_insertDown &&
+            !controlDown &&
+            !altDown &&
+            !winDown &&
+            !_textReviewMode &&
+            !_browserBrowseMode &&
+            IsBrowserContext() &&
+            vkCode == VkTab)
+        {
+            QueueBrowserFocusSyncAfterTab();
+            return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
         }
 
         if (!_insertDown &&
@@ -679,9 +743,17 @@ public sealed class KeyboardCommandManager : IDisposable
             IsBrowserContext() &&
             !_browserBrowseMode)
         {
+            AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+            if (focused is not null && ShouldPassEscapeThroughToElement(focused))
+            {
+                return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+            }
+
             _browserBrowseMode = true;
+            _browserManualFocusMode = false;
             _browserAutoFocusOnEdit = false;
             _browserEditDirty = false;
+            BrowserVirtualBuffer.SyncToFocusedElement();
             ThreadPool.QueueUserWorkItem(_ => _speakBrowserMessage("تم الرجوع إلى وضع التصفح."));
             return (IntPtr)1;
         }
@@ -947,6 +1019,30 @@ public sealed class KeyboardCommandManager : IDisposable
         return true;
     }
 
+    private void QueueBrowserFocusSyncAfterTab()
+    {
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            try
+            {
+                Thread.Sleep(60);
+            }
+            catch
+            {
+            }
+
+            string syncText = BrowserVirtualBuffer.SyncToFocusedElement();
+            if (syncText.Contains("غير موجود داخل المخزن الظاهري", StringComparison.Ordinal) ||
+                syncText.Contains("غير جاهز", StringComparison.Ordinal))
+            {
+                BrowserVirtualBuffer.Refresh();
+                syncText = BrowserVirtualBuffer.SyncToFocusedElement();
+            }
+
+            TryAutoPassThroughForFocusedElement();
+        });
+    }
+
     private bool TryHandleBrowserTableNavigation(uint vkCode)
     {
         Action? action = vkCode switch
@@ -1035,8 +1131,21 @@ public sealed class KeyboardCommandManager : IDisposable
         AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
         if (focused is null || !FocusSnapshotReader.IsBrowserContext(focused))
         {
+            _browserManualFocusMode = false;
             _browserAutoFocusOnEdit = false;
             _browserEditDirty = false;
+            return;
+        }
+
+        if (_browserManualFocusMode)
+        {
+            _browserBrowseMode = false;
+            _browserAutoFocusOnEdit = IsEditableElement(focused);
+            if (!_browserAutoFocusOnEdit)
+            {
+                _browserEditDirty = false;
+            }
+
             return;
         }
 
@@ -1061,6 +1170,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private void EnterAutoFocusOnEditField()
     {
         _browserBrowseMode = false;
+        _browserManualFocusMode = false;
         _browserAutoFocusOnEdit = true;
         _browserEditDirty = false;
         PlayNavigationAlertTone();
@@ -1069,6 +1179,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private void EnterAutoFocusOnInteractiveElement()
     {
         _browserBrowseMode = false;
+        _browserManualFocusMode = false;
         _browserAutoFocusOnEdit = false;
         _browserEditDirty = false;
         PlayNavigationAlertTone();
@@ -1110,18 +1221,30 @@ public sealed class KeyboardCommandManager : IDisposable
     private static bool ShouldAutoPassThroughForElement(AutomationElement element)
     {
         string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
-        if (semanticRole is "web_edit" or "web_combobox" or "web_radio" or "web_tab" or "web_menuitem")
-        {
-            return true;
-        }
+        string role = FocusSnapshotReader.ResolveRole(element);
+        bool focusableOrFocused = element.Current.IsKeyboardFocusable || element.Current.HasKeyboardFocus;
 
-        if (semanticRole is "web_link" or "web_button" or "web_togglebutton" or "web_checkbox")
+        if (!element.Current.IsEnabled)
         {
             return false;
         }
 
-        string role = FocusSnapshotReader.ResolveRole(element);
-        if (role is "menuitem" or "tabitem" or "treeitem" or "slider" or "spinner")
+        if (IsEditableElement(element))
+        {
+            return true;
+        }
+
+        if (!focusableOrFocused && role != "menu")
+        {
+            return false;
+        }
+
+        if (IsReadOnlyButNotInteractive(element, semanticRole, role))
+        {
+            return false;
+        }
+
+        if (AlwaysPassThroughSemanticRoles.Contains(semanticRole) || AlwaysPassThroughRoles.Contains(role))
         {
             return true;
         }
@@ -1131,9 +1254,156 @@ public sealed class KeyboardCommandManager : IDisposable
             return true;
         }
 
+        if (PassThroughOnFocusSemanticRoles.Contains(semanticRole) && element.Current.HasKeyboardFocus)
+        {
+            return true;
+        }
+
+        if (HasToolbarAncestor(element))
+        {
+            return true;
+        }
+
+        if (semanticRole is "web_link" or "web_button" or "web_togglebutton" or "web_checkbox")
+        {
+            return false;
+        }
+
         // List items in rich widgets often need arrow-key interaction once focused,
         // but plain web list items should stay in browse mode.
         return role == "listitem" && element.Current.IsKeyboardFocusable;
+    }
+
+    private bool TryHandleBrowseModeActivationKey(uint vkCode)
+    {
+        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+        if (focused is null || !FocusSnapshotReader.IsBrowserContext(focused))
+        {
+            return false;
+        }
+
+        if (ShouldAutoPassThroughForElement(focused))
+        {
+            ThreadPool.QueueUserWorkItem(_ => HandleBrowseModeActivationKey());
+            return true;
+        }
+
+        if (!ShouldActivateFocusedElementInBrowseMode(focused, vkCode))
+        {
+            LogBrowserCommandDecision(vkCode, "ignored", "مفتاح التفعيل غير مناسب للعنصر الحالي في وضع التصفح.");
+            return false;
+        }
+
+        LogBrowserCommandDecision(vkCode, "execute", "تفعيل العنصر الحالي من وضع التصفح.");
+        ThreadPool.QueueUserWorkItem(_ => _activateCurrentBrowserElement());
+        return true;
+    }
+
+    private void HandleBrowseModeActivationKey()
+    {
+        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+        if (focused is null || !FocusSnapshotReader.IsBrowserContext(focused))
+        {
+            _activateCurrentBrowserElement();
+            return;
+        }
+
+        if (ShouldAutoPassThroughForElement(focused))
+        {
+            BrowserVirtualBuffer.SyncToElement(focused);
+            if (FocusSnapshotReader.ResolveWebSemanticRole(focused) == "web_edit")
+            {
+                EnterAutoFocusOnEditField();
+            }
+            else
+            {
+                EnterAutoFocusOnInteractiveElement();
+            }
+
+            return;
+        }
+
+        _activateCurrentBrowserElement();
+    }
+
+    private static bool ShouldActivateFocusedElementInBrowseMode(AutomationElement element, uint vkCode)
+    {
+        string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+
+        return vkCode switch
+        {
+            VkReturn => semanticRole is
+                "web_link" or
+                "web_button" or
+                "web_togglebutton" or
+                "web_checkbox" or
+                "web_radio",
+            VkSpace => semanticRole is
+                "web_button" or
+                "web_togglebutton" or
+                "web_checkbox" or
+                "web_radio",
+            _ => false
+        };
+    }
+
+    private static bool IsEditableElement(AutomationElement element)
+    {
+        if (FocusSnapshotReader.IsEditableBrowserDocument(element))
+        {
+            return true;
+        }
+
+        string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+        if (semanticRole == "web_edit")
+        {
+            return true;
+        }
+
+        try
+        {
+            if (element.TryGetCurrentPattern(ValuePattern.Pattern, out object? valuePatternObject))
+            {
+                return !((ValuePattern)valuePatternObject).Current.IsReadOnly;
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
+    }
+
+    private static bool IsReadOnlyButNotInteractive(AutomationElement element, string semanticRole, string role)
+    {
+        bool isReadOnly = false;
+        try
+        {
+            if (element.TryGetCurrentPattern(ValuePattern.Pattern, out object? valuePatternObject))
+            {
+                isReadOnly = ((ValuePattern)valuePatternObject).Current.IsReadOnly;
+            }
+        }
+        catch
+        {
+        }
+
+        if (!isReadOnly)
+        {
+            return false;
+        }
+
+        if (semanticRole == "web_combobox" || semanticRole == "web_edit")
+        {
+            return false;
+        }
+
+        if (role is "dataitem" or "headeritem")
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private static bool IsInteractiveGridCell(AutomationElement element)
@@ -1156,6 +1426,26 @@ public sealed class KeyboardCommandManager : IDisposable
         }
 
         return false;
+    }
+
+    private static bool HasToolbarAncestor(AutomationElement element)
+    {
+        AutomationElement? toolbar = FocusSnapshotReader.FindAncestor(
+            element,
+            current => current != element && FocusSnapshotReader.ResolveRole(current) == "toolbar");
+        return toolbar is not null;
+    }
+
+    private static bool ShouldPassEscapeThroughToElement(AutomationElement element)
+    {
+        string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+        if (IgnoreEscapeToBrowseSemanticRoles.Contains(semanticRole))
+        {
+            return true;
+        }
+
+        string role = FocusSnapshotReader.ResolveRole(element);
+        return role is "menuitem" or "dataitem" or "headeritem";
     }
 
     private bool ShouldLeaveAutoFocusedEdit(

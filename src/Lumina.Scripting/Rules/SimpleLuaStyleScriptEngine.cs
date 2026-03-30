@@ -436,20 +436,24 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
     {
         List<string> parts = [];
 
-        if (!string.IsNullOrWhiteSpace(node.Name) && node.Name != "Unnamed")
+        string name = NormalizeLiveSpeechPart(node.Name);
+        string value = NormalizeLiveSpeechPart(node.Value);
+        string state = NormalizeLiveSpeechState(node.StateSummary);
+
+        if (IsUsefulLiveSpeechPart(name))
         {
-            parts.Add(node.Name);
+            parts.Add(name);
         }
 
-        if (!string.IsNullOrWhiteSpace(node.Value) &&
-            !string.Equals(node.Value, node.Name, StringComparison.Ordinal))
+        if (IsUsefulLiveSpeechPart(value) &&
+            !string.Equals(value, name, StringComparison.Ordinal))
         {
-            parts.Add(node.Value);
+            parts.Add(value);
         }
 
-        if (!string.IsNullOrWhiteSpace(node.StateSummary))
+        if (IsUsefulLiveSpeechPart(state))
         {
-            parts.Add(node.StateSummary);
+            parts.Add(state);
         }
 
         if (parts.Count == 0)
@@ -465,6 +469,42 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
         }
 
         return string.Join(". ", parts.Distinct(StringComparer.Ordinal));
+    }
+
+    private static bool IsUsefulLiveSpeechPart(string? value) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        value.Length > 1 &&
+        value != "Unnamed" &&
+        value.Any(char.IsLetterOrDigit);
+
+    private static string NormalizeLiveSpeechPart(string? value) =>
+        (value ?? string.Empty)
+            .Replace('\u00A0', ' ')
+            .Replace("\r", " ", StringComparison.Ordinal)
+            .Replace("\n", " ", StringComparison.Ordinal)
+            .Trim();
+
+    private static string NormalizeLiveSpeechState(string? stateSummary)
+    {
+        if (string.IsNullOrWhiteSpace(stateSummary))
+        {
+            return string.Empty;
+        }
+
+        string[] noisyStates =
+        [
+            "حالي",
+            "تمت زيارته",
+            "قيد التحديث"
+        ];
+
+        string[] parts = stateSummary
+            .Split('،', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(part => !noisyStates.Contains(part, StringComparer.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        return string.Join("، ", parts);
     }
 
     private sealed record ScriptFileDiagnostic(

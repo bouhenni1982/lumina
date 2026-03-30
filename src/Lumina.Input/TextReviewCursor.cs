@@ -8,7 +8,7 @@ namespace Lumina.Input;
 public static class TextReviewCursor
 {
     private static readonly object Sync = new();
-    private static readonly Regex SentenceRegex = new(@"[^.!?؟]+[.!?؟]*", RegexOptions.Compiled);
+    private static readonly Regex SentenceRegex = new(@"[^.!?؟…\r\n]+(?:[.!?؟…]+)?", RegexOptions.Compiled);
     private static string? _elementRuntimeId;
     private static TextPatternRange? _lineRange;
     private static TextPatternRange? _characterRange;
@@ -514,14 +514,46 @@ public static class TextReviewCursor
                 return;
             }
 
-            TextPatternRange caret = activeRange.Clone();
-            caret.MoveEndpointByRange(TextPatternRangeEndpoint.End, caret, TextPatternRangeEndpoint.Start);
-            caret.Select();
-            caret.ScrollIntoView(false);
+            if (ShouldSelectReviewRange(element))
+            {
+                TextPatternRange caret = activeRange.Clone();
+                caret.MoveEndpointByRange(TextPatternRangeEndpoint.End, caret, TextPatternRangeEndpoint.Start);
+                caret.Select();
+                caret.ScrollIntoView(false);
+                return;
+            }
+
+            activeRange.ScrollIntoView(false);
         }
         catch
         {
         }
+    }
+
+    private static bool ShouldSelectReviewRange(AutomationElement element)
+    {
+        try
+        {
+            if (element.Current.ControlType != ControlType.Edit &&
+                element.Current.ControlType != ControlType.Document)
+            {
+                return true;
+            }
+
+            if (element.TryGetCurrentPattern(ValuePattern.Pattern, out object? valuePatternObject))
+            {
+                string value = ((ValuePattern)valuePatternObject).Current.Value ?? string.Empty;
+                if (value.Contains('\n') || value.Contains('\r'))
+                {
+                    return false;
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return true;
     }
 
     private static int ResolveSentenceStartOffset(string paragraphText, List<string> sentences, int sentenceIndex)
@@ -548,13 +580,38 @@ public static class TextReviewCursor
     }
 
     private static string Normalize(string? text) =>
-        (text ?? string.Empty).Replace("\r", " ").Replace("\n", " ").Trim();
+        (text ?? string.Empty)
+            .Replace("\r", " ", StringComparison.Ordinal)
+            .Replace("\n", " ", StringComparison.Ordinal)
+            .Replace('\u00A0', ' ')
+            .Trim();
 
     private static string DescribeCharacter(string text) =>
         text switch
         {
             " " => "مسافة",
             "\t" => "جدولة",
+            "." => "نقطة",
+            "," => "فاصلة",
+            "،" => "فاصلة عربية",
+            ":" => "نقطتان",
+            ";" => "فاصلة منقوطة",
+            "؛" => "فاصلة منقوطة عربية",
+            "!" => "علامة تعجب",
+            "?" => "علامة استفهام",
+            "؟" => "علامة استفهام عربية",
+            "-" => "شرطة",
+            "_" => "شرطة سفلية",
+            "/" => "شرطة مائلة",
+            "\\" => "شرطة مائلة عكسية",
+            "(" => "قوس فتح",
+            ")" => "قوس إغلاق",
+            "[" => "قوس مربع فتح",
+            "]" => "قوس مربع إغلاق",
+            "{" => "قوس معقوف فتح",
+            "}" => "قوس معقوف إغلاق",
+            "\"" => "علامة اقتباس مزدوجة",
+            "'" => "علامة اقتباس مفردة",
             _ => text
         };
 

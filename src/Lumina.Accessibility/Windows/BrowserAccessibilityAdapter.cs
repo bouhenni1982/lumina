@@ -78,6 +78,11 @@ internal sealed class BrowserAccessibilityAdapter
             return "web_heading";
         }
 
+        if (IsLikelyEditableBrowserDocument(role, localizedRole, itemType, hintText, value))
+        {
+            return "web_edit";
+        }
+
         if (role is "document" || localizedRole.Contains("document"))
         {
             return "web_document";
@@ -150,6 +155,40 @@ internal sealed class BrowserAccessibilityAdapter
         }
 
         return "web_control";
+    }
+
+    private static bool IsLikelyEditableBrowserDocument(
+        string role,
+        string localizedRole,
+        string itemType,
+        string hintText,
+        string? value)
+    {
+        if (role is not "document" && !localizedRole.Contains("document", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        string combined = $"{localizedRole} {itemType} {hintText} {value}".ToLowerInvariant();
+        string[] editableHints =
+        [
+            "editable",
+            "editor",
+            "rich text",
+            "content editable",
+            "composer",
+            "message",
+            "chat input",
+            "document editing",
+            "document content",
+            "تحرير",
+            "محرر",
+            "رسالة",
+            "كتابة",
+            "compose"
+        ];
+
+        return editableHints.Any(hint => combined.Contains(hint, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string NormalizeRole(string role, string semanticRole) =>

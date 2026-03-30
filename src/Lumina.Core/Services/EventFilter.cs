@@ -78,22 +78,65 @@ public sealed class EventFilter
     {
         List<string> parts = [];
 
-        if (!string.IsNullOrWhiteSpace(node.Name) && node.Name != "Unnamed")
+        if (IsUsefulLivePart(node.Name))
         {
-            parts.Add(node.Name.Trim());
+            parts.Add(NormalizeLivePart(node.Name));
         }
 
-        if (!string.IsNullOrWhiteSpace(node.Value) &&
-            !string.Equals(node.Value, node.Name, StringComparison.Ordinal))
+        if (IsUsefulLivePart(node.Value) &&
+            !string.Equals(NormalizeLivePart(node.Value), NormalizeLivePart(node.Name), StringComparison.Ordinal))
         {
-            parts.Add(node.Value.Trim());
+            parts.Add(NormalizeLivePart(node.Value));
         }
 
-        if (!string.IsNullOrWhiteSpace(node.StateSummary))
+        string stateSummary = NormalizeLiveState(node.StateSummary);
+        if (IsUsefulLivePart(stateSummary))
         {
-            parts.Add(node.StateSummary.Trim());
+            parts.Add(stateSummary);
         }
 
         return string.Join(" | ", parts.Distinct(StringComparer.Ordinal));
+    }
+
+    private static bool IsUsefulLivePart(string? value)
+    {
+        string normalized = NormalizeLivePart(value);
+        if (string.IsNullOrWhiteSpace(normalized) || normalized.Length <= 1)
+        {
+            return false;
+        }
+
+        return normalized is not "unnamed" and not "unknown" &&
+               normalized.Any(char.IsLetterOrDigit);
+    }
+
+    private static string NormalizeLivePart(string? value) =>
+        (value ?? string.Empty)
+            .Replace('\u00A0', ' ')
+            .Replace("\r", " ", StringComparison.Ordinal)
+            .Replace("\n", " ", StringComparison.Ordinal)
+            .Trim();
+
+    private static string NormalizeLiveState(string? stateSummary)
+    {
+        if (string.IsNullOrWhiteSpace(stateSummary))
+        {
+            return string.Empty;
+        }
+
+        string[] noisyStates =
+        [
+            "حالي",
+            "تمت زيارته",
+            "قيد التحديث"
+        ];
+
+        string[] parts = stateSummary
+            .Split('،', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(part => !noisyStates.Contains(part, StringComparer.Ordinal))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        return string.Join("، ", parts);
     }
 }

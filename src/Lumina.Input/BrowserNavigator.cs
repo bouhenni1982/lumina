@@ -861,7 +861,28 @@ public static class BrowserNavigator
         }
 
         string name = FocusSnapshotReader.ResolveName(element);
-        return !string.IsNullOrWhiteSpace(name) && name != "عنصر غير مسمى";
+        if (!string.IsNullOrWhiteSpace(name) && name != "عنصر غير مسمى")
+        {
+            return true;
+        }
+
+        string text = GetReadableElementText(element);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        // Keep structural containers with no readable label out of the virtual buffer
+        // unless they expose enough text to be meaningfully read as content.
+        if (semanticRole is "web_landmark" or "web_table" or "web_list" or "web_dialog")
+        {
+            int wordCount = text
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Count(word => word.Any(char.IsLetterOrDigit));
+            return wordCount >= 4;
+        }
+
+        return true;
     }
 
     private static bool IsFormFieldRole(string semanticRole) =>
