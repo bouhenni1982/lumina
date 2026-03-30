@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
 using Lumina.Core.Services;
@@ -568,6 +569,13 @@ public sealed class KeyboardCommandManager : IDisposable
         bool altDown = IsKeyCurrentlyDown(VkMenu);
         bool winDown = IsKeyCurrentlyDown(VkLWin) || IsKeyCurrentlyDown(VkRWin);
         bool altGrDown = IsKeyCurrentlyDown(VkRMenu);
+        long browserKeyCapturedAt = 0;
+
+        if (IsBrowserDiagnosticKey(vkCode))
+        {
+            browserKeyCapturedAt = Stopwatch.GetTimestamp();
+            LogBrowserKeyCapture(vkCode, browserKeyCapturedAt, shiftDown, controlDown, altDown, winDown, altGrDown);
+        }
 
         SyncBrowserModeToFocusedContext();
 
@@ -578,7 +586,7 @@ public sealed class KeyboardCommandManager : IDisposable
             _browserEditDirty = false;
             SyncOrRefreshBrowserBufferToFocus();
 
-            if (TryHandleBrowserArrowReading(vkCode, controlDown))
+            if (TryHandleBrowserArrowReading(vkCode, controlDown, browserKeyCapturedAt))
             {
                 return (IntPtr)1;
             }
@@ -653,14 +661,14 @@ public sealed class KeyboardCommandManager : IDisposable
             bool canArrowRead = IsBrowserArrowReadingContext(vkCode);
             if (canArrowRead)
             {
-                if (TryHandleBrowserArrowReading(vkCode, controlDown))
+                if (TryHandleBrowserArrowReading(vkCode, controlDown, browserKeyCapturedAt))
                 {
                     return (IntPtr)1;
                 }
             }
             else if (IsBrowserContext())
             {
-                LogBrowserCommandDecision(vkCode, "ignored", "الأسهم ليست في سياق قراءة ويب صالح.");
+                LogBrowserCommandDecision(vkCode, "ignored", "الأسهم ليست في سياق قراءة ويب صالح.", browserKeyCapturedAt);
             }
         }
 
@@ -725,14 +733,14 @@ public sealed class KeyboardCommandManager : IDisposable
             bool canNavigate = IsBrowserNavigationContext();
             if (canNavigate)
             {
-                if (TryHandleBrowserNavigation(vkCode, shiftDown))
+                if (TryHandleBrowserNavigation(vkCode, shiftDown, browserKeyCapturedAt))
                 {
                     return (IntPtr)1;
                 }
             }
             else if (IsBrowserContext())
             {
-                LogBrowserCommandDecision(vkCode, "ignored", "الحرف أو الأمر السريع خارج سياق التصفح الحالي.");
+                LogBrowserCommandDecision(vkCode, "ignored", "الحرف أو الأمر السريع خارج سياق التصفح الحالي.", browserKeyCapturedAt);
             }
         }
 
@@ -768,6 +776,11 @@ public sealed class KeyboardCommandManager : IDisposable
             {
                 return (IntPtr)1;
             }
+        }
+
+        if (browserKeyCapturedAt != 0)
+        {
+            LogBrowserCommandDecision(vkCode, "passthrough", "تم تمرير المفتاح بدون اعتراض.", browserKeyCapturedAt);
         }
 
         return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
@@ -874,11 +887,11 @@ public sealed class KeyboardCommandManager : IDisposable
         return true;
     }
 
-    private bool TryHandleBrowserNavigation(uint vkCode, bool shiftDown)
+    private bool TryHandleBrowserNavigation(uint vkCode, bool shiftDown, long capturedAt)
     {
         if (!_browserSingleLetterNavigationEnabled)
         {
-            LogBrowserCommandDecision(vkCode, "ignored", "التنقل بالحروف المفردة معطل.");
+            LogBrowserCommandDecision(vkCode, "ignored", "التنقل بالحروف المفردة معطل.", capturedAt);
             return false;
         }
 
@@ -942,12 +955,12 @@ public sealed class KeyboardCommandManager : IDisposable
 
         if (action is null)
         {
-            LogBrowserCommandDecision(vkCode, "ignored", "لا يوجد أمر تصفح مربوط لهذا المفتاح.");
+            LogBrowserCommandDecision(vkCode, "ignored", "لا يوجد أمر تصفح مربوط لهذا المفتاح.", capturedAt);
             return false;
         }
 
-        LogBrowserCommandDecision(vkCode, "execute", shiftDown ? "تنقل سابق." : "تنقل تال.");
-        QueueSerializedBrowserWork(() =>
+        LogBrowserCommandDecision(vkCode, "execute", shiftDown ? "تنقل سابق." : "تنقل تال.", capturedAt);
+        QueueSerializedBrowserWork(vkCode, capturedAt, shiftDown ? "تنقل سابق." : "تنقل تال.", () =>
         {
             action();
             TryAutoPassThroughForFocusedElement();
@@ -991,7 +1004,7 @@ public sealed class KeyboardCommandManager : IDisposable
         return true;
     }
 
-    private bool TryHandleBrowserArrowReading(uint vkCode, bool controlDown)
+    private bool TryHandleBrowserArrowReading(uint vkCode, bool controlDown, long capturedAt)
     {
         string? text = (vkCode, controlDown) switch
         {
@@ -1006,7 +1019,7 @@ public sealed class KeyboardCommandManager : IDisposable
 
         if (text is null)
         {
-            LogBrowserCommandDecision(vkCode, "ignored", controlDown ? "لا توجد قراءة ويب معرفة لهذا السهم مع Ctrl." : "لا توجد قراءة ويب معرفة لهذا السهم.");
+            LogBrowserCommandDecision(vkCode, "ignored", controlDown ? "لا توجد قراءة ويب معرفة لهذا السهم مع Ctrl." : "لا توجد قراءة ويب معرفة لهذا السهم.", capturedAt);
             return false;
         }
 
@@ -1015,8 +1028,8 @@ public sealed class KeyboardCommandManager : IDisposable
             EnterAutoFocusOnEditField();
         }
 
-        LogBrowserCommandDecision(vkCode, "execute", controlDown ? "قراءة ويب مع Ctrl." : "قراءة ويب.");
-        QueueSerializedBrowserWork(() => _speakBrowserMessage(text));
+        LogBrowserCommandDecision(vkCode, "execute", controlDown ? "قراءة ويب مع Ctrl." : "قراءة ويب.", capturedAt);
+        QueueSerializedBrowserWork(vkCode, capturedAt, controlDown ? "قراءة ويب مع Ctrl." : "قراءة ويب.", () => _speakBrowserMessage(text));
         return true;
     }
 
@@ -1579,7 +1592,63 @@ public sealed class KeyboardCommandManager : IDisposable
         });
     }
 
-    private void LogBrowserCommandDecision(uint vkCode, string decision, string detail)
+    private void QueueSerializedBrowserWork(uint vkCode, long capturedAt, string detail, Action action)
+    {
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            long queuedAt = Stopwatch.GetTimestamp();
+            bool gateAcquired = false;
+            try
+            {
+                gateAcquired = _browserCommandExecutionGate.Wait(TimeSpan.FromMilliseconds(700));
+                if (!gateAcquired)
+                {
+                    LogBrowserCommandDecision(vkCode, "timeout", "تعذر الحصول على قفل تنفيذ أوامر التصفح خلال 700ms.", capturedAt);
+                    return;
+                }
+
+                double queueWaitMs = ElapsedMilliseconds(queuedAt);
+                action();
+                LogBrowserCommandCompleted(vkCode, detail, capturedAt, queueWaitMs);
+            }
+            catch (Exception exception)
+            {
+                LogBrowserCommandDecision(vkCode, "failed", $"حدث استثناء أثناء تنفيذ أمر التصفح: {exception.Message}", capturedAt);
+            }
+            finally
+            {
+                if (gateAcquired)
+                {
+                    _browserCommandExecutionGate.Release();
+                }
+            }
+        });
+    }
+
+    private void LogBrowserCommandDecision(uint vkCode, string decision, string detail, long capturedAt = 0)
+    {
+        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+        string process = focused is null ? "none" : FocusSnapshotReader.ResolveProcessName(focused);
+        string role = focused is null ? "none" : FocusSnapshotReader.ResolveRole(focused);
+        string semanticRole = focused is null ? "none" : FocusSnapshotReader.ResolveWebSemanticRole(focused);
+        string name = focused is null ? "none" : FocusSnapshotReader.ResolveName(focused);
+        string latency = capturedAt == 0
+            ? string.Empty
+            : $" latencyMs={ElapsedMilliseconds(capturedAt):0.0},";
+
+        ErrorLogger.LogInfo(
+            nameof(KeyboardCommandManager),
+            $"BrowserCommand {decision}: key={FormatVirtualKey(vkCode)},{latency} browseMode={_browserBrowseMode}, singleLetter={_browserSingleLetterNavigationEnabled}, textReview={_textReviewMode}, process={process}, role={role}, semanticRole={semanticRole}, name={name}. {detail}");
+    }
+
+    private void LogBrowserKeyCapture(
+        uint vkCode,
+        long capturedAt,
+        bool shiftDown,
+        bool controlDown,
+        bool altDown,
+        bool winDown,
+        bool altGrDown)
     {
         AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
         string process = focused is null ? "none" : FocusSnapshotReader.ResolveProcessName(focused);
@@ -1589,8 +1658,29 @@ public sealed class KeyboardCommandManager : IDisposable
 
         ErrorLogger.LogInfo(
             nameof(KeyboardCommandManager),
-            $"BrowserCommand {decision}: key={FormatVirtualKey(vkCode)}, browseMode={_browserBrowseMode}, singleLetter={_browserSingleLetterNavigationEnabled}, textReview={_textReviewMode}, process={process}, role={role}, semanticRole={semanticRole}, name={name}. {detail}");
+            $"BrowserCommand captured: key={FormatVirtualKey(vkCode)}, captureTs={capturedAt}, shift={shiftDown}, ctrl={controlDown}, alt={altDown}, win={winDown}, altGr={altGrDown}, browseMode={_browserBrowseMode}, singleLetter={_browserSingleLetterNavigationEnabled}, textReview={_textReviewMode}, process={process}, role={role}, semanticRole={semanticRole}, name={name}.");
     }
+
+    private void LogBrowserCommandCompleted(uint vkCode, string detail, long capturedAt, double queueWaitMs)
+    {
+        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
+        string process = focused is null ? "none" : FocusSnapshotReader.ResolveProcessName(focused);
+        string role = focused is null ? "none" : FocusSnapshotReader.ResolveRole(focused);
+        string semanticRole = focused is null ? "none" : FocusSnapshotReader.ResolveWebSemanticRole(focused);
+        string name = focused is null ? "none" : FocusSnapshotReader.ResolveName(focused);
+
+        ErrorLogger.LogInfo(
+            nameof(KeyboardCommandManager),
+            $"BrowserCommand completed: key={FormatVirtualKey(vkCode)}, totalLatencyMs={ElapsedMilliseconds(capturedAt):0.0}, queueWaitMs={queueWaitMs:0.0}, browseMode={_browserBrowseMode}, process={process}, role={role}, semanticRole={semanticRole}, name={name}. {detail}");
+    }
+
+    private static bool IsBrowserDiagnosticKey(uint vkCode) =>
+        IsDirectionalReadingKey(vkCode) ||
+        IsPotentialBrowserNavigationKey(vkCode) ||
+        vkCode is VkTab or VkReturn or VkSpace or VkEscape;
+
+    private static double ElapsedMilliseconds(long startTimestamp) =>
+        (Stopwatch.GetTimestamp() - startTimestamp) * 1000d / Stopwatch.Frequency;
 
     private string SyncOrRefreshBrowserBufferToFocus()
     {
