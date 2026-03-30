@@ -577,13 +577,44 @@ public sealed class KeyboardCommandManager : IDisposable
             LogBrowserKeyCapture(vkCode, browserKeyCapturedAt, shiftDown, controlDown, altDown, winDown, altGrDown);
         }
 
-        SyncBrowserModeToFocusedContext();
-        if (browserKeyCapturedAt != 0)
+        try
         {
-            LogBrowserContextSnapshot(vkCode, browserKeyCapturedAt, "بعد مزامنة سياق المتصفح");
+            SyncBrowserModeToFocusedContext();
+            if (browserKeyCapturedAt != 0)
+            {
+                LogBrowserContextSnapshot(vkCode, browserKeyCapturedAt, "بعد مزامنة سياق المتصفح");
+            }
+        }
+        catch (Exception exception)
+        {
+            if (browserKeyCapturedAt != 0)
+            {
+                LogBrowserCommandDecision(vkCode, "failed", $"فشل أثناء مزامنة سياق المتصفح: {exception.GetType().Name}: {exception.Message}", browserKeyCapturedAt);
+            }
+
+            return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
         }
 
-        if (ShouldLeaveAutoFocusedEdit(vkCode, controlDown, altDown, winDown))
+        bool shouldLeaveAutoFocusedEdit;
+        try
+        {
+            shouldLeaveAutoFocusedEdit = ShouldLeaveAutoFocusedEdit(vkCode, controlDown, altDown, winDown);
+            if (browserKeyCapturedAt != 0)
+            {
+                LogBrowserContextSnapshot(vkCode, browserKeyCapturedAt, $"فحص الخروج من edit التلقائي: shouldLeaveAutoFocusedEdit={shouldLeaveAutoFocusedEdit}");
+            }
+        }
+        catch (Exception exception)
+        {
+            if (browserKeyCapturedAt != 0)
+            {
+                LogBrowserCommandDecision(vkCode, "failed", $"فشل أثناء فحص auto-focused edit: {exception.GetType().Name}: {exception.Message}", browserKeyCapturedAt);
+            }
+
+            return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+        }
+
+        if (shouldLeaveAutoFocusedEdit)
         {
             _browserBrowseMode = true;
             _browserAutoFocusOnEdit = false;
@@ -596,7 +627,26 @@ public sealed class KeyboardCommandManager : IDisposable
             }
         }
 
-        if (ShouldMarkBrowserEditAsDirty(vkCode, controlDown, altDown, winDown))
+        bool shouldMarkBrowserEditDirty;
+        try
+        {
+            shouldMarkBrowserEditDirty = ShouldMarkBrowserEditAsDirty(vkCode, controlDown, altDown, winDown);
+            if (browserKeyCapturedAt != 0)
+            {
+                LogBrowserContextSnapshot(vkCode, browserKeyCapturedAt, $"فحص editDirty: shouldMarkBrowserEditDirty={shouldMarkBrowserEditDirty}");
+            }
+        }
+        catch (Exception exception)
+        {
+            if (browserKeyCapturedAt != 0)
+            {
+                LogBrowserCommandDecision(vkCode, "failed", $"فشل أثناء فحص editDirty: {exception.GetType().Name}: {exception.Message}", browserKeyCapturedAt);
+            }
+
+            return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+        }
+
+        if (shouldMarkBrowserEditDirty)
         {
             _browserEditDirty = true;
         }
