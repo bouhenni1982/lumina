@@ -184,6 +184,7 @@ public sealed class KeyboardCommandManager : IDisposable
     private readonly Action _moveToEndOfLine;
     private readonly Action _sayAllFromReviewCursor;
     private readonly Action<string> _speakBrowserMessage;
+    private readonly SemaphoreSlim _browserCommandExecutionGate = new(1, 1);
 
     private readonly HookProc _hookProc;
     private Thread? _messageLoopThread;
@@ -946,7 +947,7 @@ public sealed class KeyboardCommandManager : IDisposable
         }
 
         LogBrowserCommandDecision(vkCode, "execute", shiftDown ? "تنقل سابق." : "تنقل تال.");
-        ThreadPool.QueueUserWorkItem(_ =>
+        QueueSerializedBrowserWork(() =>
         {
             action();
             TryAutoPassThroughForFocusedElement();
@@ -1015,13 +1016,13 @@ public sealed class KeyboardCommandManager : IDisposable
         }
 
         LogBrowserCommandDecision(vkCode, "execute", controlDown ? "قراءة ويب مع Ctrl." : "قراءة ويب.");
-        ThreadPool.QueueUserWorkItem(_ => _speakBrowserMessage(text));
+        QueueSerializedBrowserWork(() => _speakBrowserMessage(text));
         return true;
     }
 
     private void QueueBrowserFocusSyncAfterTab()
     {
-        ThreadPool.QueueUserWorkItem(_ =>
+        QueueSerializedBrowserWork(() =>
         {
             try
             {
@@ -1061,7 +1062,7 @@ public sealed class KeyboardCommandManager : IDisposable
         }
 
         LogBrowserCommandDecision(vkCode, "execute", "تنقل داخل جدول.");
-        ThreadPool.QueueUserWorkItem(_ => action());
+        QueueSerializedBrowserWork(action);
         return true;
     }
 
@@ -1298,7 +1299,7 @@ public sealed class KeyboardCommandManager : IDisposable
 
         if (ShouldAutoPassThroughForElement(focused))
         {
-            ThreadPool.QueueUserWorkItem(_ => HandleBrowseModeActivationKey());
+            QueueSerializedBrowserWork(HandleBrowseModeActivationKey);
             return true;
         }
 
@@ -1309,7 +1310,7 @@ public sealed class KeyboardCommandManager : IDisposable
         }
 
         LogBrowserCommandDecision(vkCode, "execute", "تفعيل العنصر الحالي من وضع التصفح.");
-        ThreadPool.QueueUserWorkItem(_ => _activateCurrentBrowserElement());
+        QueueSerializedBrowserWork(_activateCurrentBrowserElement);
         return true;
     }
 
@@ -1553,6 +1554,34 @@ public sealed class KeyboardCommandManager : IDisposable
             VkH or VkK or VkV or VkU or VkE or VkG or VkM or VkS or VkQ or VkO or VkP or VkN or
             VkB or VkX or VkR or VkC or VkD or VkT or VkY or VkLBrowser or VkI or VkA or VkF or
             VkComma or Vk1 or Vk2 or Vk3 or Vk4 or Vk5 or Vk6 or Vk7 or Vk8 or Vk9;
+
+    private void QueueSerializedBrowserWork(Action action)
+    {
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            bool gateAcquired = false;
+            try
+            {
+                gateAcquired = _browserCommandExecutionGate.Wait(TimeSpan.FromMilliseconds(700));
+                if (!gateAcquired)
+                {
+                    return;
+                }
+
+                action();
+            }
+            catch
+            {
+            }
+            finally
+            {
+                if (gateAcquired)
+                {
+                    _browserCommandExecutionGate.Release();
+                }
+            }
+        });
+    }
 
     private void LogBrowserCommandDecision(uint vkCode, string decision, string detail)
     {

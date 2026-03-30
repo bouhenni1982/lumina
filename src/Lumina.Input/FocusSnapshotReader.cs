@@ -754,6 +754,11 @@ public static class FocusSnapshotReader
         try
         {
             string processName = ResolveProcessName(element);
+            if (processName is "explorer" or "shellexperiencehost" or "searchhost")
+            {
+                return false;
+            }
+
             string className = element.Current.ClassName ?? string.Empty;
             bool isKnownBrowserProcess = processName is "chrome" or "msedge" or "firefox" or "electron" or "code" or "teams";
             bool hasBrowserClass = className.Contains("Chrome", StringComparison.OrdinalIgnoreCase) ||
