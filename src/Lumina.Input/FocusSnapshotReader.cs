@@ -760,7 +760,7 @@ public static class FocusSnapshotReader
             }
 
             string className = element.Current.ClassName ?? string.Empty;
-            bool isKnownBrowserProcess = processName is "chrome" or "msedge" or "firefox" or "electron" or "code" or "teams";
+            bool isKnownBrowserProcess = processName is "chrome" or "msedge" or "firefox" or "brave";
             bool hasBrowserClass = className.Contains("Chrome", StringComparison.OrdinalIgnoreCase) ||
                                    className.Contains("Mozilla", StringComparison.OrdinalIgnoreCase);
 
@@ -1099,7 +1099,7 @@ public static class FocusSnapshotReader
             return true;
         }
 
-        return element.Current.IsKeyboardFocusable || element.Current.HasKeyboardFocus;
+        return false;
     }
 
     internal static string ResolveName(AutomationElement element)

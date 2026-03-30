@@ -1085,7 +1085,7 @@ public sealed class KeyboardCommandManager : IDisposable
             return true;
         }
 
-        return !IsDocumentRole(focused);
+        return IsDocumentRole(focused);
     }
 
     private bool IsBrowserContext()

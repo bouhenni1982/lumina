@@ -9,9 +9,7 @@ internal sealed class BrowserAccessibilityAdapter
         "chrome",
         "msedge",
         "firefox",
-        "electron",
-        "code",
-        "teams"
+        "brave"
     };
 
     public BrowserAdaptation Apply(
@@ -42,11 +40,6 @@ internal sealed class BrowserAccessibilityAdapter
 
     private static bool IsBrowserContext(AutomationElement element, string processName, string sourceApi)
     {
-        if (sourceApi.Contains("IA2", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
         string className = element.Current.ClassName ?? string.Empty;
         bool hasBrowserClass = className.Contains("Chrome", StringComparison.OrdinalIgnoreCase) ||
                                className.Contains("Mozilla", StringComparison.OrdinalIgnoreCase);
