@@ -1078,7 +1078,13 @@ public sealed class KeyboardCommandManager : IDisposable
             return false;
         }
 
-        return FocusSnapshotReader.ResolveWebSemanticRole(focused) != "web_edit";
+        string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(focused);
+        if (semanticRole != "web_edit")
+        {
+            return true;
+        }
+
+        return !IsDocumentRole(focused);
     }
 
     private bool IsBrowserContext()
@@ -1151,14 +1157,14 @@ public sealed class KeyboardCommandManager : IDisposable
 
         if (ShouldAutoPassThroughForElement(focused))
         {
-            if (FocusSnapshotReader.ResolveWebSemanticRole(focused) == "web_edit")
+            if (FocusSnapshotReader.ResolveWebSemanticRole(focused) == "web_edit" &&
+                !IsDocumentRole(focused))
             {
                 _browserBrowseMode = false;
                 _browserAutoFocusOnEdit = true;
                 _browserEditDirty = false;
+                return;
             }
-
-            return;
         }
 
         _browserBrowseMode = true;
@@ -1209,7 +1215,8 @@ public sealed class KeyboardCommandManager : IDisposable
             return;
         }
 
-        if (FocusSnapshotReader.ResolveWebSemanticRole(focused) == "web_edit")
+        if (FocusSnapshotReader.ResolveWebSemanticRole(focused) == "web_edit" &&
+            !IsDocumentRole(focused))
         {
             EnterAutoFocusOnEditField();
             return;
@@ -1231,6 +1238,13 @@ public sealed class KeyboardCommandManager : IDisposable
 
         if (IsEditableElement(element))
         {
+            // Keep browse mode active on document-like web surfaces so arrows keep reading
+            // instead of frequently flipping to focus mode.
+            if (role == "document")
+            {
+                return false;
+            }
+
             return true;
         }
 
@@ -1495,8 +1509,16 @@ public sealed class KeyboardCommandManager : IDisposable
             return false;
         }
 
-        return FocusSnapshotReader.ResolveWebSemanticRole(focused) == "web_edit";
+        if (FocusSnapshotReader.ResolveWebSemanticRole(focused) != "web_edit")
+        {
+            return false;
+        }
+
+        return !IsDocumentRole(focused);
     }
+
+    private static bool IsDocumentRole(AutomationElement element) =>
+        string.Equals(FocusSnapshotReader.ResolveRole(element), "document", StringComparison.Ordinal);
 
     private static bool IsLikelyTextInputKey(uint vkCode)
     {

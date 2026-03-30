@@ -270,9 +270,14 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
             return false;
         }
 
+        bool hasArabic = text.Any(character => character is >= '\u0600' and <= '\u06FF');
+        int latinOrDigitCount = text.Count(character => char.IsLetterOrDigit(character) && character <= '\u024F');
+
         if (text.Contains("????", StringComparison.Ordinal))
         {
-            return true;
+            // Do not aggressively reject text that still carries meaningful Latin content.
+            // Some browser/provider strings may replace accents with '?' while remaining readable.
+            return !hasArabic && latinOrDigitCount < 4;
         }
 
         int questionMarks = text.Count(character => character == '?');
@@ -281,8 +286,12 @@ public sealed class SimpleLuaStyleScriptEngine : IScriptEngine, IDisposable
             return false;
         }
 
-        bool hasArabic = text.Any(character => character is >= '\u0600' and <= '\u06FF');
-        return !hasArabic && questionMarks >= Math.Max(text.Length / 5, 3);
+        if (hasArabic)
+        {
+            return false;
+        }
+
+        return questionMarks >= Math.Max(text.Length / 5, 3) && latinOrDigitCount < 4;
     }
 
     private static string NormalizeProcessName(string processName) =>
