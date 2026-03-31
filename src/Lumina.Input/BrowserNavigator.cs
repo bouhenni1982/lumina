@@ -611,7 +611,8 @@ public static class BrowserNavigator
         }
 
         List<string> segments = [];
-        segments.Add(FocusSnapshotReader.BuildWebSummary(table));
+        UiaElementClient tableClient = UiaElementClient.FromElement(table);
+        segments.Add(tableClient.WebSummary);
 
         if (TryDescribeCurrentCell(current, out string? cellSummary))
         {
@@ -620,9 +621,8 @@ public static class BrowserNavigator
 
         try
         {
-            if (table.TryGetCurrentPattern(GridPattern.Pattern, out object? gridPatternObject))
+            if (tableClient.TryGetGridPattern(out GridPattern? grid) && grid is not null)
             {
-                GridPattern grid = (GridPattern)gridPatternObject;
                 segments.Add($"الصفوف {grid.Current.RowCount}");
                 segments.Add($"الأعمدة {grid.Current.ColumnCount}");
             }
@@ -1271,12 +1271,13 @@ public static class BrowserNavigator
     {
         try
         {
-            if (!element.TryGetCurrentPattern(InvokePattern.Pattern, out object? invokeObject))
+            UiaElementClient client = UiaElementClient.FromElement(element);
+            if (!client.TryGetInvokePattern(out InvokePattern? invokePattern) || invokePattern is null)
             {
                 return false;
             }
 
-            ((InvokePattern)invokeObject).Invoke();
+            invokePattern.Invoke();
             return true;
         }
         catch
@@ -1289,12 +1290,13 @@ public static class BrowserNavigator
     {
         try
         {
-            if (!element.TryGetCurrentPattern(TogglePattern.Pattern, out object? toggleObject))
+            UiaElementClient client = UiaElementClient.FromElement(element);
+            if (!client.TryGetTogglePattern(out TogglePattern? togglePattern) || togglePattern is null)
             {
                 return false;
             }
 
-            ((TogglePattern)toggleObject).Toggle();
+            togglePattern.Toggle();
             return true;
         }
         catch
@@ -1307,12 +1309,12 @@ public static class BrowserNavigator
     {
         try
         {
-            if (!element.TryGetCurrentPattern(ExpandCollapsePattern.Pattern, out object? patternObject))
+            UiaElementClient client = UiaElementClient.FromElement(element);
+            if (!client.TryGetExpandCollapsePattern(out ExpandCollapsePattern? pattern) || pattern is null)
             {
                 return false;
             }
 
-            ExpandCollapsePattern pattern = (ExpandCollapsePattern)patternObject;
             switch (pattern.Current.ExpandCollapseState)
             {
                 case ExpandCollapseState.Collapsed:
@@ -1343,13 +1345,13 @@ public static class BrowserNavigator
 
         try
         {
-            if (!current.TryGetCurrentPattern(GridItemPattern.Pattern, out object? gridItemObject))
+            UiaElementClient client = UiaElementClient.FromElement(current);
+            if (!client.TryGetGridItemPattern(out GridItemPattern? gridItem) || gridItem is null)
             {
                 return false;
             }
 
-            GridItemPattern gridItem = (GridItemPattern)gridItemObject;
-            string cellName = FocusSnapshotReader.ResolveName(current);
+            string cellName = client.Name;
             List<string> segments =
             [
                 $"الخلية {cellName}",
@@ -1377,14 +1379,15 @@ public static class BrowserNavigator
 
         try
         {
-            if (!current.TryGetCurrentPattern(GridItemPattern.Pattern, out object? gridItemObject) ||
-                !table.TryGetCurrentPattern(GridPattern.Pattern, out object? gridObject))
+            UiaElementClient currentClient = UiaElementClient.FromElement(current);
+            UiaElementClient tableClient = UiaElementClient.FromElement(table);
+            if (!currentClient.TryGetGridItemPattern(out GridItemPattern? gridItem) ||
+                gridItem is null ||
+                !tableClient.TryGetGridPattern(out GridPattern? grid) ||
+                grid is null)
             {
                 return false;
             }
-
-            GridItemPattern gridItem = (GridItemPattern)gridItemObject;
-            GridPattern grid = (GridPattern)gridObject;
 
             int row = gridItem.Current.Row;
             int column = gridItem.Current.Column + (moveNext ? 1 : -1);
@@ -1415,14 +1418,15 @@ public static class BrowserNavigator
 
         try
         {
-            if (!current.TryGetCurrentPattern(GridItemPattern.Pattern, out object? gridItemObject) ||
-                !table.TryGetCurrentPattern(GridPattern.Pattern, out object? gridObject))
+            UiaElementClient currentClient = UiaElementClient.FromElement(current);
+            UiaElementClient tableClient = UiaElementClient.FromElement(table);
+            if (!currentClient.TryGetGridItemPattern(out GridItemPattern? gridItem) ||
+                gridItem is null ||
+                !tableClient.TryGetGridPattern(out GridPattern? grid) ||
+                grid is null)
             {
                 return false;
             }
-
-            GridItemPattern gridItem = (GridItemPattern)gridItemObject;
-            GridPattern grid = (GridPattern)gridObject;
 
             int row = gridItem.Current.Row + (moveDown ? 1 : -1);
             int column = gridItem.Current.Column;
@@ -1456,7 +1460,7 @@ public static class BrowserNavigator
             List<AutomationElement> descendants = EnumerateElements(table)
                 .Where(candidate =>
                 {
-                    string role = FocusSnapshotReader.ResolveRole(candidate);
+                    string role = UiaElementClient.FromElement(candidate).Role;
                     return role is "dataitem" or "listitem" or "text" or "edit" or "button";
                 })
                 .ToList();
@@ -1496,30 +1500,29 @@ public static class BrowserNavigator
             return cellText!;
         }
 
-        return FocusSnapshotReader.BuildWebSummary(element);
+        return UiaElementClient.FromElement(element).WebSummary;
     }
 
     private static void AddHeaderSegments(AutomationElement element, List<string> segments)
     {
         try
         {
-            if (!element.TryGetCurrentPattern(TableItemPattern.Pattern, out object? tableItemObject))
+            UiaElementClient client = UiaElementClient.FromElement(element);
+            if (!client.TryGetTableItemPattern(out TableItemPattern? tableItem) || tableItem is null)
             {
                 return;
             }
 
-            TableItemPattern tableItem = (TableItemPattern)tableItemObject;
-
             string[] rowHeaders = tableItem.Current.GetRowHeaderItems()
                 .Cast<AutomationElement>()
-                .Select(FocusSnapshotReader.ResolveName)
+                .Select(header => UiaElementClient.FromElement(header).Name)
                 .Where(name => !string.IsNullOrWhiteSpace(name) && name != "عنصر غير مسمى")
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
 
             string[] columnHeaders = tableItem.Current.GetColumnHeaderItems()
                 .Cast<AutomationElement>()
-                .Select(FocusSnapshotReader.ResolveName)
+                .Select(header => UiaElementClient.FromElement(header).Name)
                 .Where(name => !string.IsNullOrWhiteSpace(name) && name != "عنصر غير مسمى")
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();

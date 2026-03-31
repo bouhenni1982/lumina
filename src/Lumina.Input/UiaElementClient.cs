@@ -1,4 +1,5 @@
 using System.Windows.Automation;
+using System.Windows.Automation.Text;
 
 namespace Lumina.Input;
 
@@ -13,6 +14,7 @@ internal sealed class UiaElementClient
     private string? _runtimeId;
     private string? _webSummary;
     private bool? _browserContext;
+    private Dictionary<int, object?>? _patternCache;
 
     public UiaElementClient(AutomationElement? element)
     {
@@ -53,6 +55,51 @@ internal sealed class UiaElementClient
     public static UiaElementClient FromElement(AutomationElement? element) => new(element);
 
     public static UiaElementClient ForFocusedElement() => new(FocusSnapshotReader.GetFocusedElement());
+
+    public bool TryGetInvokePattern(out InvokePattern? pattern) => TryGetPattern(InvokePattern.Pattern, out pattern);
+
+    public bool TryGetTogglePattern(out TogglePattern? pattern) => TryGetPattern(TogglePattern.Pattern, out pattern);
+
+    public bool TryGetExpandCollapsePattern(out ExpandCollapsePattern? pattern) => TryGetPattern(ExpandCollapsePattern.Pattern, out pattern);
+
+    public bool TryGetGridPattern(out GridPattern? pattern) => TryGetPattern(GridPattern.Pattern, out pattern);
+
+    public bool TryGetGridItemPattern(out GridItemPattern? pattern) => TryGetPattern(GridItemPattern.Pattern, out pattern);
+
+    public bool TryGetTableItemPattern(out TableItemPattern? pattern) => TryGetPattern(TableItemPattern.Pattern, out pattern);
+
+    public bool TryGetTextPattern(out TextPattern? pattern) => TryGetPattern(TextPattern.Pattern, out pattern);
+
+    private bool TryGetPattern<TPattern>(AutomationPattern automationPattern, out TPattern? pattern)
+        where TPattern : class
+    {
+        pattern = null;
+        if (Element is null)
+        {
+            return false;
+        }
+
+        _patternCache ??= [];
+        int key = automationPattern.Id;
+        if (!_patternCache.TryGetValue(key, out object? cached))
+        {
+            try
+            {
+                cached = Element.TryGetCurrentPattern(automationPattern, out object? patternObject)
+                    ? patternObject
+                    : null;
+            }
+            catch
+            {
+                cached = null;
+            }
+
+            _patternCache[key] = cached;
+        }
+
+        pattern = cached as TPattern;
+        return pattern is not null;
+    }
 
     private static string ResolveRuntimeId(AutomationElement element)
     {

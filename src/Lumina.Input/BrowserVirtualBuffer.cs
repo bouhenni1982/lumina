@@ -637,7 +637,7 @@ public static class BrowserVirtualBuffer
             return false;
         }
 
-        if (TryReadTextPatternText(client.Element, out string? textPatternText))
+        if (TryReadTextPatternText(client, out string? textPatternText))
         {
             foreach (string line in SplitIntoReadableSegments(textPatternText))
             {
@@ -778,18 +778,17 @@ public static class BrowserVirtualBuffer
         }
     }
 
-    private static bool TryReadTextPatternText(AutomationElement element, out string? text)
+    private static bool TryReadTextPatternText(UiaElementClient client, out string? text)
     {
         text = null;
 
         try
         {
-            if (!element.TryGetCurrentPattern(TextPattern.Pattern, out object? patternObject))
+            if (!client.TryGetTextPattern(out TextPattern? pattern) || pattern is null)
             {
                 return false;
             }
 
-            TextPattern pattern = (TextPattern)patternObject;
             string patternText = NormalizeReadingText(pattern.DocumentRange.GetText(-1));
             if (string.IsNullOrWhiteSpace(patternText))
             {
