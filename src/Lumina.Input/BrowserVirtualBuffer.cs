@@ -637,7 +637,7 @@ public static class BrowserVirtualBuffer
             return false;
         }
 
-        if (TryReadTextPatternText(client, out string? textPatternText))
+        if (TryReadTextPatternText(client, out string? textPatternText) && textPatternText is not null)
         {
             foreach (string line in SplitIntoReadableSegments(textPatternText))
             {

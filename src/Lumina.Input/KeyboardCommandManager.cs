@@ -733,7 +733,7 @@ public sealed class KeyboardCommandManager : IDisposable
                     return (IntPtr)1;
                 }
             }
-            else if (currentFocusSnapshot.BrowserContext)
+            else if (currentFocusSnapshot.Client.BrowserContext)
             {
                 LogBrowserCommandDecision(vkCode, "ignored", "الأسهم ليست في سياق قراءة ويب صالح.", browserKeyCapturedAt);
             }
@@ -745,7 +745,7 @@ public sealed class KeyboardCommandManager : IDisposable
             !winDown &&
             !_textReviewMode &&
             _browserBrowseMode &&
-            currentFocusSnapshot.BrowserContext &&
+            currentFocusSnapshot.Client.BrowserContext &&
             vkCode is VkReturn or VkSpace)
         {
             if (TryHandleBrowseModeActivationKey(vkCode))
@@ -760,7 +760,7 @@ public sealed class KeyboardCommandManager : IDisposable
             !winDown &&
             !_textReviewMode &&
             _browserBrowseMode &&
-            currentFocusSnapshot.BrowserContext &&
+            currentFocusSnapshot.Client.BrowserContext &&
             vkCode == VkTab)
         {
             if (browserKeyCapturedAt != 0)
@@ -797,7 +797,7 @@ public sealed class KeyboardCommandManager : IDisposable
             !winDown &&
             !_textReviewMode &&
             !_browserBrowseMode &&
-            currentFocusSnapshot.BrowserContext &&
+            currentFocusSnapshot.Client.BrowserContext &&
             vkCode == VkTab)
         {
             if (browserKeyCapturedAt != 0)
@@ -829,7 +829,7 @@ public sealed class KeyboardCommandManager : IDisposable
                     return (IntPtr)1;
                 }
             }
-            else if (currentFocusSnapshot.BrowserContext)
+            else if (currentFocusSnapshot.Client.BrowserContext)
             {
                 LogBrowserCommandDecision(vkCode, "ignored", "الحرف أو الأمر السريع خارج سياق التصفح الحالي.", browserKeyCapturedAt);
             }
@@ -840,7 +840,7 @@ public sealed class KeyboardCommandManager : IDisposable
             !altDown &&
             !winDown &&
             vkCode == VkEscape &&
-            currentFocusSnapshot.BrowserContext &&
+            currentFocusSnapshot.Client.BrowserContext &&
             !_browserBrowseMode)
         {
             AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
