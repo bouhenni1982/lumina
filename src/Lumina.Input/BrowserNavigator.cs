@@ -9,6 +9,9 @@ public static class BrowserNavigator
     private static string _cachedNavigationRootRuntimeId = string.Empty;
     private static DateTime _cachedNavigationElementsUtc = DateTime.MinValue;
     private static List<AutomationElement>? _cachedNavigationElements;
+    private static string _cachedFilteredNavigationRootRuntimeId = string.Empty;
+    private static DateTime _cachedFilteredNavigationElementsUtc = DateTime.MinValue;
+    private static List<AutomationElement>? _cachedFilteredNavigationElements;
 
     internal sealed record ElementsListItem(
         string Type,
@@ -465,9 +468,7 @@ public static class BrowserNavigator
             return "العنصر الحالي ليس ضمن سياق ويب معروف.";
         }
 
-        List<AutomationElement> elements = GetNavigationElements(current)
-            .Where(IsPageNavigationCandidate)
-            .ToList();
+        List<AutomationElement> elements = GetPageNavigationElements(current);
         if (elements.Count == 0)
         {
             return missingMessage;
@@ -481,8 +482,9 @@ public static class BrowserNavigator
             return missingMessage;
         }
 
+        HashSet<AutomationElement> matchingSet = new(matchingElements);
         IEnumerable<AutomationElement> orderedCandidates = EnumerateAfterCurrent(elements, currentIndex)
-            .Where(element => MatchesElementSafely(element, matcher));
+            .Where(element => matchingSet.Contains(element));
 
         foreach (AutomationElement candidate in orderedCandidates)
         {
@@ -492,7 +494,7 @@ public static class BrowserNavigator
             }
         }
 
-        bool currentMatches = currentIndex >= 0 && MatchesElementSafely(elements[currentIndex], matcher);
+        bool currentMatches = currentIndex >= 0 && matchingSet.Contains(elements[currentIndex]);
         return currentMatches ? boundaryMessage ?? missingMessage : missingMessage;
     }
 
@@ -512,9 +514,7 @@ public static class BrowserNavigator
             return "العنصر الحالي ليس ضمن سياق ويب معروف.";
         }
 
-        List<AutomationElement> elements = GetNavigationElements(current)
-            .Where(IsPageNavigationCandidate)
-            .ToList();
+        List<AutomationElement> elements = GetPageNavigationElements(current);
         if (elements.Count == 0)
         {
             return missingMessage;
@@ -528,8 +528,9 @@ public static class BrowserNavigator
             return missingMessage;
         }
 
+        HashSet<AutomationElement> matchingSet = new(matchingElements);
         IEnumerable<AutomationElement> orderedCandidates = EnumerateBeforeCurrent(elements, currentIndex)
-            .Where(element => MatchesElementSafely(element, matcher));
+            .Where(element => matchingSet.Contains(element));
 
         foreach (AutomationElement candidate in orderedCandidates)
         {
@@ -539,7 +540,7 @@ public static class BrowserNavigator
             }
         }
 
-        bool currentMatches = currentIndex >= 0 && MatchesElementSafely(elements[currentIndex], matcher);
+        bool currentMatches = currentIndex >= 0 && matchingSet.Contains(elements[currentIndex]);
         return currentMatches ? boundaryMessage ?? missingMessage : missingMessage;
     }
 
@@ -556,9 +557,7 @@ public static class BrowserNavigator
             return "العنصر الحالي ليس ضمن سياق ويب معروف.";
         }
 
-        List<AutomationElement> elements = GetNavigationElements(current)
-            .Where(IsPageNavigationCandidate)
-            .ToList();
+        List<AutomationElement> elements = GetPageNavigationElements(current);
         if (elements.Count == 0)
         {
             return moveNext
@@ -693,9 +692,8 @@ public static class BrowserNavigator
             return "العنصر الحالي ليس ضمن سياق ويب معروف.";
         }
 
-        List<AutomationElement> elements = GetNavigationElements(current)
-            .Where(IsFocusableWebElement)
-            .ToList();
+        List<AutomationElement> elements = GetPageNavigationElements(current);
+        elements = elements.Where(IsFocusableWebElement).ToList();
         if (elements.Count == 0)
         {
             return "لا توجد عناصر قابلة للتفاعل في الصفحة.";
@@ -883,6 +881,36 @@ public static class BrowserNavigator
         }
 
         return elements;
+    }
+
+    private static List<AutomationElement> GetPageNavigationElements(AutomationElement current)
+    {
+        AutomationElement root = ResolveNavigationRoot(current);
+        string rootRuntimeId = GetRuntimeIdString(root);
+        DateTime now = DateTime.UtcNow;
+
+        lock (NavigationElementsCacheSync)
+        {
+            if (_cachedFilteredNavigationElements is not null &&
+                string.Equals(_cachedFilteredNavigationRootRuntimeId, rootRuntimeId, StringComparison.Ordinal) &&
+                now - _cachedFilteredNavigationElementsUtc <= NavigationElementsCacheWindow)
+            {
+                return _cachedFilteredNavigationElements;
+            }
+        }
+
+        List<AutomationElement> filtered = GetNavigationElements(current)
+            .Where(IsPageNavigationCandidate)
+            .ToList();
+
+        lock (NavigationElementsCacheSync)
+        {
+            _cachedFilteredNavigationRootRuntimeId = rootRuntimeId;
+            _cachedFilteredNavigationElementsUtc = now;
+            _cachedFilteredNavigationElements = filtered;
+        }
+
+        return filtered;
     }
 
     private static string GetRuntimeIdString(AutomationElement element)
