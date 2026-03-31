@@ -4,6 +4,12 @@ namespace Lumina.Input;
 
 public static class BrowserNavigator
 {
+    private static readonly object NavigationElementsCacheSync = new();
+    private static readonly TimeSpan NavigationElementsCacheWindow = TimeSpan.FromMilliseconds(450);
+    private static string _cachedNavigationRootRuntimeId = string.Empty;
+    private static DateTime _cachedNavigationElementsUtc = DateTime.MinValue;
+    private static List<AutomationElement>? _cachedNavigationElements;
+
     internal sealed record ElementsListItem(
         string Type,
         string Label,
@@ -459,8 +465,7 @@ public static class BrowserNavigator
             return "العنصر الحالي ليس ضمن سياق ويب معروف.";
         }
 
-        AutomationElement root = ResolveNavigationRoot(current);
-        List<AutomationElement> elements = EnumerateElements(root)
+        List<AutomationElement> elements = GetNavigationElements(current)
             .Where(IsPageNavigationCandidate)
             .ToList();
         if (elements.Count == 0)
@@ -507,8 +512,7 @@ public static class BrowserNavigator
             return "العنصر الحالي ليس ضمن سياق ويب معروف.";
         }
 
-        AutomationElement root = ResolveNavigationRoot(current);
-        List<AutomationElement> elements = EnumerateElements(root)
+        List<AutomationElement> elements = GetNavigationElements(current)
             .Where(IsPageNavigationCandidate)
             .ToList();
         if (elements.Count == 0)
@@ -552,8 +556,7 @@ public static class BrowserNavigator
             return "العنصر الحالي ليس ضمن سياق ويب معروف.";
         }
 
-        AutomationElement root = ResolveNavigationRoot(current);
-        List<AutomationElement> elements = EnumerateElements(root)
+        List<AutomationElement> elements = GetNavigationElements(current)
             .Where(IsPageNavigationCandidate)
             .ToList();
         if (elements.Count == 0)
@@ -690,8 +693,7 @@ public static class BrowserNavigator
             return "العنصر الحالي ليس ضمن سياق ويب معروف.";
         }
 
-        AutomationElement root = ResolveNavigationRoot(current);
-        List<AutomationElement> elements = EnumerateElements(root)
+        List<AutomationElement> elements = GetNavigationElements(current)
             .Where(IsFocusableWebElement)
             .ToList();
         if (elements.Count == 0)
@@ -852,6 +854,47 @@ public static class BrowserNavigator
             {
                 stack.Push(children[index]);
             }
+        }
+    }
+
+    private static IReadOnlyList<AutomationElement> GetNavigationElements(AutomationElement current)
+    {
+        AutomationElement root = ResolveNavigationRoot(current);
+        string rootRuntimeId = GetRuntimeIdString(root);
+        DateTime now = DateTime.UtcNow;
+
+        lock (NavigationElementsCacheSync)
+        {
+            if (_cachedNavigationElements is not null &&
+                string.Equals(_cachedNavigationRootRuntimeId, rootRuntimeId, StringComparison.Ordinal) &&
+                now - _cachedNavigationElementsUtc <= NavigationElementsCacheWindow)
+            {
+                return _cachedNavigationElements;
+            }
+        }
+
+        List<AutomationElement> elements = EnumerateElements(root).ToList();
+
+        lock (NavigationElementsCacheSync)
+        {
+            _cachedNavigationRootRuntimeId = rootRuntimeId;
+            _cachedNavigationElementsUtc = now;
+            _cachedNavigationElements = elements;
+        }
+
+        return elements;
+    }
+
+    private static string GetRuntimeIdString(AutomationElement element)
+    {
+        try
+        {
+            int[]? runtimeId = element.GetRuntimeId();
+            return runtimeId is null ? string.Empty : string.Join("-", runtimeId);
+        }
+        catch
+        {
+            return string.Empty;
         }
     }
 
