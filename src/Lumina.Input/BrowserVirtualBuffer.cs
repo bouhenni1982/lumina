@@ -662,6 +662,8 @@ public static class BrowserVirtualBuffer
     private static List<BufferLine> ExpandToBufferLines(List<BufferItem> rawItems)
     {
         List<BufferLine> lines = [];
+        string previousRuntimeId = string.Empty;
+        string previousLineText = string.Empty;
 
         foreach (BufferItem item in rawItems)
         {
@@ -673,6 +675,12 @@ public static class BrowserVirtualBuffer
                     continue;
                 }
 
+                if (string.Equals(previousRuntimeId, item.RuntimeId, StringComparison.Ordinal) &&
+                    AreSimilarForSpeech(previousLineText, lineText))
+                {
+                    continue;
+                }
+
                 lines.Add(new BufferLine(
                     RuntimeId: item.RuntimeId,
                     Client: item.Client,
@@ -680,6 +688,9 @@ public static class BrowserVirtualBuffer
                     Summary: lineText,
                     ParentSummary: item.Summary,
                     LineIndexWithinElement: i));
+
+                previousRuntimeId = item.RuntimeId;
+                previousLineText = lineText;
             }
         }
 

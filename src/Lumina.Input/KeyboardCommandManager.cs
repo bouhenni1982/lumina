@@ -201,9 +201,14 @@ public sealed class KeyboardCommandManager : IDisposable
     private bool _browserEditDirty;
     private DateTime _lastElementDetailsCommandUtc = DateTime.MinValue;
     private DateTime _lastAutoFocusModeAnnouncementUtc = DateTime.MinValue;
+    private DateTime _lastBrowserSpeechUtc = DateTime.MinValue;
+    private string _lastBrowserSpeechText = string.Empty;
+    private string _lastBrowserSpeechFocusKey = string.Empty;
+    private uint _lastBrowserSpeechKey;
 
     private static readonly TimeSpan AdvancedDetailsRepeatWindow = TimeSpan.FromMilliseconds(900);
     private static readonly TimeSpan AutoFocusModeAnnouncementWindow = TimeSpan.FromMilliseconds(1200);
+    private static readonly TimeSpan BrowserDuplicateSpeechWindow = TimeSpan.FromMilliseconds(850);
     private static readonly HashSet<string> AlwaysPassThroughSemanticRoles = new(StringComparer.Ordinal)
     {
         "web_combobox",
@@ -1119,6 +1124,12 @@ public sealed class KeyboardCommandManager : IDisposable
             EnterAutoFocusOnEditField();
         }
 
+        if (ShouldSuppressRepeatedBrowserSpeech(vkCode, text))
+        {
+            LogBrowserCommandDecision(vkCode, "ignored", "تم تجاهل قراءة مكررة لنفس العنصر خلال نافذة زمنية قصيرة.", capturedAt);
+            return true;
+        }
+
         LogBrowserCommandDecision(vkCode, "execute", controlDown ? "قراءة ويب مع Ctrl." : "قراءة ويب.", capturedAt);
         QueueSerializedBrowserWork(vkCode, capturedAt, controlDown ? "قراءة ويب مع Ctrl." : "قراءة ويب.", () => _speakBrowserMessage(text));
         return true;
@@ -1688,8 +1699,11 @@ public sealed class KeyboardCommandManager : IDisposable
                 }
 
                 double queueWaitMs = ElapsedMilliseconds(queuedAt);
+                long executionStartedAt = Stopwatch.GetTimestamp();
                 action();
-                LogBrowserCommandCompleted(vkCode, detail, capturedAt, queueWaitMs);
+                double executionMs = ElapsedMilliseconds(executionStartedAt);
+                double captureLatencyMs = capturedAt == 0 ? 0 : ElapsedMilliseconds(capturedAt);
+                LogBrowserCommandCompleted(vkCode, detail, captureLatencyMs, queueWaitMs, executionMs);
             }
             catch (Exception exception)
             {
@@ -1750,17 +1764,23 @@ public sealed class KeyboardCommandManager : IDisposable
             $"BrowserCommand state: key={FormatVirtualKey(vkCode)}, latencyMs={ElapsedMilliseconds(capturedAt):0.0}, browserContext={value.Client.BrowserContext}, browseMode={_browserBrowseMode}, manualFocus={_browserManualFocusMode}, autoFocusEdit={_browserAutoFocusOnEdit}, editDirty={_browserEditDirty}, singleLetter={_browserSingleLetterNavigationEnabled}, process={value.Client.Process}, role={value.Client.Role}, semanticRole={value.Client.SemanticRole}, name={value.Client.Name}. {detail}");
     }
 
-    private void LogBrowserCommandCompleted(uint vkCode, string detail, long capturedAt, double queueWaitMs)
+    private void LogBrowserCommandCompleted(
+        uint vkCode,
+        string detail,
+        double captureLatencyMs,
+        double queueWaitMs,
+        double executionMs)
     {
         AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
         string process = focused is null ? "none" : FocusSnapshotReader.ResolveProcessName(focused);
         string role = focused is null ? "none" : FocusSnapshotReader.ResolveRole(focused);
         string semanticRole = focused is null ? "none" : FocusSnapshotReader.ResolveWebSemanticRole(focused);
         string name = focused is null ? "none" : FocusSnapshotReader.ResolveName(focused);
+        double totalLatencyMs = queueWaitMs + executionMs;
 
         ErrorLogger.LogInfo(
             nameof(KeyboardCommandManager),
-            $"BrowserCommand completed: key={FormatVirtualKey(vkCode)}, totalLatencyMs={ElapsedMilliseconds(capturedAt):0.0}, queueWaitMs={queueWaitMs:0.0}, browseMode={_browserBrowseMode}, process={process}, role={role}, semanticRole={semanticRole}, name={name}. {detail}");
+            $"BrowserCommand completed: key={FormatVirtualKey(vkCode)}, totalLatencyMs={totalLatencyMs:0.0}, queueWaitMs={queueWaitMs:0.0}, executionMs={executionMs:0.0}, captureLatencyMs={captureLatencyMs:0.0}, browseMode={_browserBrowseMode}, process={process}, role={role}, semanticRole={semanticRole}, name={name}. {detail}");
     }
 
     private static bool IsBrowserDiagnosticKey(uint vkCode) =>
@@ -1770,6 +1790,39 @@ public sealed class KeyboardCommandManager : IDisposable
 
     private static double ElapsedMilliseconds(long startTimestamp) =>
         (Stopwatch.GetTimestamp() - startTimestamp) * 1000d / Stopwatch.Frequency;
+
+    private bool ShouldSuppressRepeatedBrowserSpeech(uint vkCode, string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        BrowserFocusSnapshot snapshot = CaptureBrowserFocusSnapshot();
+        string focusKey = string.Join(
+            "|",
+            snapshot.Client.Process,
+            snapshot.Client.Role,
+            snapshot.Client.SemanticRole,
+            snapshot.Client.Name);
+
+        DateTime now = DateTime.UtcNow;
+        bool suppress =
+            _lastBrowserSpeechKey == vkCode &&
+            string.Equals(_lastBrowserSpeechText, text, StringComparison.Ordinal) &&
+            string.Equals(_lastBrowserSpeechFocusKey, focusKey, StringComparison.Ordinal) &&
+            now - _lastBrowserSpeechUtc <= BrowserDuplicateSpeechWindow;
+
+        if (!suppress)
+        {
+            _lastBrowserSpeechUtc = now;
+            _lastBrowserSpeechText = text;
+            _lastBrowserSpeechFocusKey = focusKey;
+            _lastBrowserSpeechKey = vkCode;
+        }
+
+        return suppress;
+    }
 
     private readonly record struct BrowserFocusSnapshot(UiaElementClient Client);
 
