@@ -19,24 +19,25 @@ public static class BrowserVirtualBuffer
 
     public static string Refresh()
     {
-        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
-        if (focused is null)
+        UiaElementClient focused = UiaElementClient.ForFocusedElement();
+        if (!focused.Exists || focused.Element is null)
         {
             return "لا توجد صفحة نشطة حاليا.";
         }
 
-        if (!FocusSnapshotReader.IsBrowserContext(focused))
+        if (!focused.BrowserContext)
         {
             return "العنصر الحالي ليس ضمن سياق ويب معروف.";
         }
 
-        AutomationElement root = BrowserNavigator.ResolveNavigationRootForBuffer(focused);
+        AutomationElement root = BrowserNavigator.ResolveNavigationRootForBuffer(focused.Element);
         List<BufferItem> rawItems = [];
         foreach (AutomationElement element in BrowserNavigator.EnumerateBufferCandidates(root))
         {
             try
             {
-                List<string> readingLines = BuildReadingLines(element);
+                UiaElementClient client = UiaElementClient.FromElement(element);
+                List<string> readingLines = BuildReadingLines(client);
                 if (readingLines.Count == 0)
                 {
                     continue;
@@ -44,10 +45,10 @@ public static class BrowserVirtualBuffer
 
                 rawItems.Add(
                     new BufferItem(
-                        RuntimeId: SafeRuntimeId(element),
-                        Element: element,
-                        SemanticRole: FocusSnapshotReader.ResolveWebSemanticRole(element),
-                        Summary: ResolveBufferSummary(element, readingLines),
+                        Client: client,
+                        RuntimeId: client.RuntimeId,
+                        SemanticRole: client.SemanticRole,
+                        Summary: ResolveBufferSummary(client, readingLines),
                         ReadingLines: readingLines));
             }
             catch (ElementNotAvailableException)
@@ -60,8 +61,8 @@ public static class BrowserVirtualBuffer
 
         List<BufferLine> items = ExpandToBufferLines(rawItems);
 
-        string pageTitle = FocusSnapshotReader.ResolveWindowTitle(focused);
-        string focusedRuntimeId = SafeRuntimeId(focused);
+        string pageTitle = FocusSnapshotReader.ResolveWindowTitle(focused.Element);
+        string focusedRuntimeId = focused.RuntimeId;
         int focusedIndex = items.FindIndex(item => item.RuntimeId == focusedRuntimeId);
 
         lock (Sync)
@@ -107,7 +108,7 @@ public static class BrowserVirtualBuffer
                 return false;
             }
 
-            return FocusSnapshotReader.ResolveWebSemanticRole(_snapshot.Items[_currentIndex].Element) == "web_edit";
+            return _snapshot.Items[_currentIndex].Client.SemanticRole == "web_edit";
         }
     }
 
@@ -390,8 +391,8 @@ public static class BrowserVirtualBuffer
 
     public static bool IsSyncedToFocusedElement()
     {
-        AutomationElement? focused = FocusSnapshotReader.GetFocusedElement();
-        if (focused is null)
+        UiaElementClient focused = UiaElementClient.ForFocusedElement();
+        if (!focused.Exists)
         {
             return false;
         }
@@ -403,7 +404,7 @@ public static class BrowserVirtualBuffer
                 return false;
             }
 
-            string runtimeId = SafeRuntimeId(focused);
+            string runtimeId = focused.RuntimeId;
             if (string.IsNullOrWhiteSpace(runtimeId))
             {
                 return false;
@@ -427,7 +428,7 @@ public static class BrowserVirtualBuffer
                 return "المخزن الظاهري غير جاهز. استخدم أمر تحديث المخزن أولا.";
             }
 
-            string runtimeId = SafeRuntimeId(element);
+            string runtimeId = UiaElementClient.FromElement(element).RuntimeId;
             int index = _snapshot.Items.FindIndex(item => item.RuntimeId == runtimeId);
             if (index < 0)
             {
@@ -523,16 +524,22 @@ public static class BrowserVirtualBuffer
         return _snapshot.Items[_currentIndex].Summary ?? string.Empty;
     }
 
-    private static List<string> BuildReadingLines(AutomationElement element)
+    private static List<string> BuildReadingLines(UiaElementClient client)
     {
         try
         {
             List<string> lines = [];
+            if (client.Element is null)
+            {
+                return lines;
+            }
+
+            AutomationElement element = client.Element;
             if (FocusSnapshotReader.IsEditableBrowserDocument(element))
             {
-                AddReadingSegment(lines, BuildStructuralSummary(element));
+                AddReadingSegment(lines, BuildStructuralSummary(client));
 
-                string editorValue = FocusSnapshotReader.TryReadValue(element);
+                string editorValue = client.Value;
                 if (!string.IsNullOrWhiteSpace(editorValue))
                 {
                     string normalizedValue = NormalizeReadingText(editorValue);
@@ -543,7 +550,7 @@ public static class BrowserVirtualBuffer
                     }
                 }
 
-                string? editorState = FocusSnapshotReader.ResolveStateSummary(element);
+                string? editorState = client.StateSummary;
                 if (!string.IsNullOrWhiteSpace(editorState))
                 {
                     AddReadingSegment(lines, $"الحالة {editorState}");
@@ -552,30 +559,30 @@ public static class BrowserVirtualBuffer
                 return lines;
             }
 
-            bool addedRichText = AddReadableTextFromElement(lines, element);
+            bool addedRichText = AddReadableTextFromElement(lines, client);
             if (!addedRichText)
             {
-                AddReadingSegment(lines, FocusSnapshotReader.BuildWebSummary(element));
+                AddReadingSegment(lines, client.WebSummary);
             }
             else
             {
-                string structuralSummary = BuildStructuralSummary(element);
+                string structuralSummary = BuildStructuralSummary(client);
                 if (ShouldIncludeStructuralSummary(lines, structuralSummary))
                 {
                     lines.Insert(0, structuralSummary);
                 }
             }
 
-            string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+            string semanticRole = client.SemanticRole;
             bool isInteractiveControl = IsInteractiveSemanticRole(semanticRole);
 
-            string value = FocusSnapshotReader.TryReadValue(element);
+            string value = client.Value;
             if (isInteractiveControl && !string.IsNullOrWhiteSpace(value))
             {
                 AddReadingSegment(lines, $"القيمة {value}");
             }
 
-            string? state = FocusSnapshotReader.ResolveStateSummary(element);
+            string? state = client.StateSummary;
             if (isInteractiveControl && !string.IsNullOrWhiteSpace(state))
             {
                 AddReadingSegment(lines, $"الحالة {state}");
@@ -593,27 +600,27 @@ public static class BrowserVirtualBuffer
         }
     }
 
-    private static string ResolveBufferSummary(AutomationElement element, IReadOnlyList<string> readingLines)
+    private static string ResolveBufferSummary(UiaElementClient client, IReadOnlyList<string> readingLines)
     {
-        string structuralSummary = BuildStructuralSummary(element);
+        string structuralSummary = BuildStructuralSummary(client);
         if (IsUsableSummary(structuralSummary))
         {
             return structuralSummary;
         }
 
-        string summary = FocusSnapshotReader.BuildWebSummary(element);
+        string summary = client.WebSummary;
         if (IsUsableSummary(summary))
         {
             return summary;
         }
 
-        string name = FocusSnapshotReader.ResolveName(element);
+        string name = client.Name;
         if (IsUsableSummary(name))
         {
             return name;
         }
 
-        string value = FocusSnapshotReader.TryReadValue(element);
+        string value = client.Value;
         if (IsUsableSummary(value))
         {
             return value;
@@ -622,11 +629,15 @@ public static class BrowserVirtualBuffer
         return readingLines.FirstOrDefault(IsUsableSummary) ?? string.Empty;
     }
 
-    private static bool AddReadableTextFromElement(List<string> lines, AutomationElement element)
+    private static bool AddReadableTextFromElement(List<string> lines, UiaElementClient client)
     {
         bool addedAny = false;
+        if (client.Element is null)
+        {
+            return false;
+        }
 
-        if (TryReadTextPatternText(element, out string? textPatternText))
+        if (TryReadTextPatternText(client.Element, out string? textPatternText))
         {
             foreach (string line in SplitIntoReadableSegments(textPatternText))
             {
@@ -638,7 +649,7 @@ public static class BrowserVirtualBuffer
             }
         }
 
-        string name = FocusSnapshotReader.ResolveName(element);
+        string name = client.Name;
         if (IsUsefulReadingLine(name) && !lines.Contains(name, StringComparer.Ordinal))
         {
             lines.Insert(0, name);
@@ -664,7 +675,7 @@ public static class BrowserVirtualBuffer
 
                 lines.Add(new BufferLine(
                     RuntimeId: item.RuntimeId,
-                    Element: item.Element,
+                    Client: item.Client,
                     SemanticRole: item.SemanticRole,
                     Summary: lineText,
                     ParentSummary: item.Summary,
@@ -675,13 +686,13 @@ public static class BrowserVirtualBuffer
         return lines;
     }
 
-    private static string BuildStructuralSummary(AutomationElement element)
+    private static string BuildStructuralSummary(UiaElementClient client)
     {
         try
         {
-            string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
-            string name = FocusSnapshotReader.ResolveName(element);
-            string? state = FocusSnapshotReader.ResolveStateSummary(element);
+            string semanticRole = client.SemanticRole;
+            string name = client.Name;
+            string? state = client.StateSummary;
 
             string summary = semanticRole switch
             {
@@ -1023,7 +1034,7 @@ public static class BrowserVirtualBuffer
     {
         try
         {
-            item.Element.SetFocus();
+            item.Client.Element?.SetFocus();
         }
         catch
         {
@@ -1102,7 +1113,8 @@ public static class BrowserVirtualBuffer
 
     private static int FindClosestSnapshotIndex(IReadOnlyList<BufferLine> items, AutomationElement element)
     {
-        string structuralSummary = BuildStructuralSummary(element);
+        UiaElementClient client = UiaElementClient.FromElement(element);
+        string structuralSummary = BuildStructuralSummary(client);
         if (IsUsableSummary(structuralSummary))
         {
             int structuralIndex = FindItemIndex(items, item => AreSimilarForSpeech(item.ParentSummary, structuralSummary));
@@ -1116,14 +1128,14 @@ public static class BrowserVirtualBuffer
             element,
             current =>
             {
-                string runtimeId = SafeRuntimeId(current);
+                string runtimeId = UiaElementClient.FromElement(current).RuntimeId;
                 return !string.IsNullOrWhiteSpace(runtimeId) &&
                        items.Any(item => string.Equals(item.RuntimeId, runtimeId, StringComparison.Ordinal));
             });
 
         if (ancestorMatch is not null)
         {
-            string ancestorRuntimeId = SafeRuntimeId(ancestorMatch);
+            string ancestorRuntimeId = UiaElementClient.FromElement(ancestorMatch).RuntimeId;
             int ancestorIndex = FindItemIndex(items, item => string.Equals(item.RuntimeId, ancestorRuntimeId, StringComparison.Ordinal));
             if (ancestorIndex >= 0)
             {
@@ -1131,7 +1143,7 @@ public static class BrowserVirtualBuffer
             }
         }
 
-        string name = FocusSnapshotReader.ResolveName(element);
+        string name = client.Name;
         if (IsUsableSummary(name))
         {
             return FindItemIndex(items, item => AreSimilarForSpeech(item.Summary, name) || AreSimilarForSpeech(item.ParentSummary, name));
@@ -1153,24 +1165,11 @@ public static class BrowserVirtualBuffer
         return -1;
     }
 
-    private static string SafeRuntimeId(AutomationElement element)
-    {
-        try
-        {
-            int[]? runtimeId = element.GetRuntimeId();
-            return runtimeId is null ? string.Empty : string.Join("-", runtimeId);
-        }
-        catch
-        {
-            return string.Empty;
-        }
-    }
-
     private sealed record BufferSnapshot(string PageTitle, List<BufferLine> Items);
-    private sealed record BufferItem(string RuntimeId, AutomationElement Element, string SemanticRole, string Summary, List<string> ReadingLines);
+    private sealed record BufferItem(UiaElementClient Client, string RuntimeId, string SemanticRole, string Summary, List<string> ReadingLines);
     private sealed record BufferLine(
         string RuntimeId,
-        AutomationElement Element,
+        UiaElementClient Client,
         string SemanticRole,
         string Summary,
         string ParentSummary,

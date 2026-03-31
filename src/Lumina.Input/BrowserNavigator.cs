@@ -88,7 +88,7 @@ public static class BrowserNavigator
 
         foreach (AutomationElement element in elements)
         {
-            switch (FocusSnapshotReader.ResolveWebSemanticRole(element))
+            switch (UiaElementClient.FromElement(element).SemanticRole)
             {
                 case "web_heading":
                     headings++;
@@ -856,31 +856,33 @@ public static class BrowserNavigator
     }
 
     private static bool IsBufferCandidate(AutomationElement element)
+        => IsBufferCandidate(UiaElementClient.FromElement(element));
+
+    private static bool IsBufferCandidate(UiaElementClient client)
     {
-        if (!IsPageNavigationCandidate(element))
+        if (!client.Exists || client.Element is null || !IsPageNavigationCandidate(client))
         {
             return false;
         }
 
-        string role = FocusSnapshotReader.ResolveRole(element);
-        if (role == "document")
+        if (client.IsDocumentRole)
         {
             return false;
         }
 
-        string semanticRole = FocusSnapshotReader.ResolveWebSemanticRole(element);
+        string semanticRole = client.SemanticRole;
         if (semanticRole is "web_control")
         {
             return false;
         }
 
-        string name = FocusSnapshotReader.ResolveName(element);
+        string name = client.Name;
         if (!string.IsNullOrWhiteSpace(name) && name != "عنصر غير مسمى")
         {
             return true;
         }
 
-        string text = GetReadableElementText(element);
+        string text = GetReadableElementText(client.Element);
         if (string.IsNullOrWhiteSpace(text))
         {
             return false;
@@ -909,24 +911,24 @@ public static class BrowserNavigator
     {
         try
         {
-            if (!IsPageNavigationCandidate(element))
+            UiaElementClient client = UiaElementClient.FromElement(element);
+            if (!client.Exists || client.Element is null || !IsPageNavigationCandidate(client))
             {
                 return false;
             }
 
-            string role = FocusSnapshotReader.ResolveRole(element);
-            if (role == "document")
+            if (client.IsDocumentRole)
             {
                 return false;
             }
 
-            string semanticRole = SafeResolveSemanticRole(element);
+            string semanticRole = client.SemanticRole;
             if (semanticRole == "web_control")
             {
                 return false;
             }
 
-            if (element.Current.IsKeyboardFocusable)
+            if (client.Element.Current.IsKeyboardFocusable)
             {
                 return true;
             }
@@ -945,7 +947,7 @@ public static class BrowserNavigator
 
     private static bool MatchesElementsListType(AutomationElement element, string itemType)
     {
-        string role = SafeResolveSemanticRole(element);
+        string role = UiaElementClient.FromElement(element).SemanticRole;
         return itemType switch
         {
             "link" => role == "web_link",
@@ -979,9 +981,10 @@ public static class BrowserNavigator
 
     private static string BuildElementsListLabel(AutomationElement element, string itemType)
     {
-        string name = FocusSnapshotReader.ResolveName(element);
+        UiaElementClient client = UiaElementClient.FromElement(element);
+        string name = client.Name;
         string role = FocusSnapshotReader.DescribeRole(element);
-        string? state = FocusSnapshotReader.ResolveStateSummary(element);
+        string? state = client.StateSummary;
         string baseLabel = itemType switch
         {
             "heading" => name,
@@ -1053,7 +1056,7 @@ public static class BrowserNavigator
             return;
         }
 
-        string name = FocusSnapshotReader.ResolveName(element);
+        string name = UiaElementClient.FromElement(element).Name;
         if (string.IsNullOrWhiteSpace(name) || name == "عنصر غير مسمى")
         {
             parts.Add(prefix);
@@ -1111,7 +1114,7 @@ public static class BrowserNavigator
 
     internal static bool CanActivateElement(AutomationElement element)
     {
-        string role = FocusSnapshotReader.ResolveWebSemanticRole(element);
+        string role = UiaElementClient.FromElement(element).SemanticRole;
         return role is "web_link" or "web_button" or "web_togglebutton" or "web_tab" or "web_menuitem" or "web_treeitem";
     }
 
@@ -1125,18 +1128,19 @@ public static class BrowserNavigator
 
     private static bool IsTextParagraphCandidate(AutomationElement element)
     {
-        if (!IsPageNavigationCandidate(element))
+        UiaElementClient client = UiaElementClient.FromElement(element);
+        if (!client.Exists || client.Element is null || !IsPageNavigationCandidate(client))
         {
             return false;
         }
 
-        string semanticRole = SafeResolveSemanticRole(element);
+        string semanticRole = client.SemanticRole;
         if (semanticRole is "web_link" or "web_button" or "web_togglebutton" or "web_checkbox" or "web_radio" or "web_combobox" or "web_menuitem" or "web_tab" or "web_separator" or "web_progressbar")
         {
             return false;
         }
 
-        string text = GetReadableElementText(element);
+        string text = GetReadableElementText(client.Element);
         if (string.IsNullOrWhiteSpace(text))
         {
             return false;
@@ -1151,32 +1155,34 @@ public static class BrowserNavigator
             return false;
         }
 
-        string role = FocusSnapshotReader.ResolveRole(element);
+        string role = client.Role;
         return semanticRole is "web_article" or "web_grouping" or "web_blockquote" ||
                role is "text" or "listitem" or "group";
     }
 
     private static bool IsPageNavigationCandidate(AutomationElement element)
+        => IsPageNavigationCandidate(UiaElementClient.FromElement(element));
+
+    private static bool IsPageNavigationCandidate(UiaElementClient client)
     {
         try
         {
-            if (!FocusSnapshotReader.IsBrowserContext(element))
+            if (!client.Exists || client.Element is null || !client.BrowserContext)
             {
                 return false;
             }
 
-            if (element.Current.IsOffscreen)
+            if (client.Element.Current.IsOffscreen)
             {
                 return false;
             }
 
-            string role = FocusSnapshotReader.ResolveRole(element);
-            if (role == "document")
+            if (client.IsDocumentRole)
             {
                 return false;
             }
 
-            string semanticRole = SafeResolveSemanticRole(element);
+            string semanticRole = client.SemanticRole;
             if (semanticRole is "web_control" or "web_document")
             {
                 return false;
@@ -1184,14 +1190,14 @@ public static class BrowserNavigator
 
             if (semanticRole is "web_landmark" or "web_table" or "web_list" or "web_dialog" or "web_article" or "web_figure" or "web_grouping")
             {
-                string containerName = FocusSnapshotReader.ResolveName(element);
+                string containerName = client.Name;
                 if (!string.IsNullOrWhiteSpace(containerName) && containerName != "عنصر غير مسمى")
                 {
                     return true;
                 }
             }
 
-            string readableText = GetReadableElementText(element);
+            string readableText = GetReadableElementText(client.Element);
             return !string.IsNullOrWhiteSpace(readableText);
         }
         catch (ElementNotAvailableException)
